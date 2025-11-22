@@ -11,7 +11,7 @@ Developed for: **SHOPGURU INTERNATIONAL SRL**
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
+<!-- - [Installation](#installation)
   - [Local Development Setup](#local-development-setup)
   - [Production Deployment (DigitalOcean)](#production-deployment-digitalocean)
 - [Configuration](#configuration)
@@ -20,7 +20,7 @@ Developed for: **SHOPGURU INTERNATIONAL SRL**
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
-- [License](#license)
+- [License](#license) -->
 
 ---
 
