@@ -1,0 +1,27 @@
+{
+    "name": "1688-shopify-importer",
+    "version": "1.0.0",
+    "description": "1688.com to Shopify Product Import System with Scraper + Auto-Upload",
+    "scripts": {
+        "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+        "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+        "backend": "cd backend && npm run dev",
+        "frontend": "cd frontend && npm run dev",
+        "build": "cd frontend && npm run build",
+        "start": "concurrently \"npm run backend:prod\" \"npm run frontend:prod\"",
+        "backend:prod": "cd backend && npm start",
+        "frontend:prod": "cd frontend && npm start"
+    },
+    "keywords": [
+        "1688",
+        "shopify",
+        "scraper",
+        "import",
+        "ecommerce"
+    ],
+    "author": "SHOPGURU INTERNATIONAL SRL",
+    "license": "PRIVATE",
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
