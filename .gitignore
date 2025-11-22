@@ -19,8 +19,8 @@ venv/
 .env.production
 backend/.env
 frontend/.env
-contract.pdf
 deployment/
+ecosystem.config.js
 
 # Build outputs
 frontend/build/

@@ -9,7 +9,7 @@ module.exports = {
             max_memory_restart: '1G',
             env: {
                 NODE_ENV: 'production',
-                PORT: 5000
+                PORT: 3001
             },
             error_file: './logs/backend-error.log',
             out_file: './logs/backend-out.log',
@@ -19,7 +19,7 @@ module.exports = {
             name: '1688-shopify-frontend',
             script: 'serve',
             env: {
-                PM2_SERVE_PATH: './frontend/build',
+                PM2_SERVE_PATH: './frontend/dist',
                 PM2_SERVE_PORT: 3000,
                 PM2_SERVE_SPA: 'true'
             }
