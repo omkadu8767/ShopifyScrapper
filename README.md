@@ -1,4 +1,4 @@
-<!-- # 1688 → Shopify Product Importer
+ # 1688 → Shopify Product Importer
 
 **Complete automated system for importing products from 1688.com to Shopify**
 
@@ -90,7 +90,7 @@ Developed for: **SHOPGURU INTERNATIONAL SRL**
 - **Google Gemini API Key** (for AI translation)
 
 ---
-
+<!--
 ## 🚀 Installation
 
 ### Local Development Setup
