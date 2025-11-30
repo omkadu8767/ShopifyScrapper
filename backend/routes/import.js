@@ -118,56 +118,68 @@ async function processImport(importId, url) {
         // Update import with title
         await db.updateImport(importId, { title: productData.title });
 
-        // Step 2: Translate and rewrite description
-        console.log(`[${importId}] Step 2: Translating description...`);
-        const translatorPath = path.join(__dirname, '../services/ai_translator.py');
-        const translateResult = await executePython(translatorPath, [
-            productData.description,
-            productData.title
-        ]);
+        // Step 2: Translate title and description
+        console.log(`[${importId}] Step 2: Translating content...`);
+        const AITranslator = require('../services/ai_translator');
+        const translator = new AITranslator();
 
-        if (!translateResult.success) {
-            console.warn(`[${importId}] Translation failed, using original text`);
-            productData.translatedDescription = productData.description;
-        } else {
-            productData.translatedDescription = translateResult.translated_text;
+        // Translate title
+        const titleResult = await translator.translateTitle(productData.title);
+        productData.translatedTitle = titleResult.translated_text;
+        console.log(`[${importId}] Translated title: ${productData.translatedTitle}`);
+
+        // Translate and rewrite description
+        const descResult = await translator.translateAndRewrite(
+            productData.description || 'High quality product from China',
+            productData.translatedTitle
+        );
+        productData.translatedDescription = descResult.translated_text;
+        console.log(`[${importId}] Description translated: ${descResult.success}`);
+
+        // Translate variants (colors, sizes, etc.)
+        if (productData.variants && productData.variants.length > 0) {
+            console.log(`[${importId}] Translating ${productData.variants.length} variant options...`);
+            for (let variant of productData.variants) {
+                // Translate variant name (e.g., "颜色" -> "Color")
+                const nameResult = await translator.translateText(variant.name, 'variant option name');
+                variant.translatedName = nameResult.translated_text;
+
+                // Translate all variant values (e.g., "红色" -> "Red")
+                variant.translatedValues = [];
+                for (let value of variant.values) {
+                    // Skip empty or very long values
+                    if (!value || value.length > 500) continue;
+
+                    const valueResult = await translator.translateText(value, `variant value for ${variant.name}`);
+                    let translatedValue = valueResult.translated_text;
+
+                    // Truncate to 50 characters max (Shopify limit is 255, but we want clean short values)
+                    if (translatedValue.length > 50) {
+                        translatedValue = translatedValue.substring(0, 47) + '...';
+                    }
+
+                    // Clean up the value
+                    translatedValue = translatedValue.trim();
+
+                    if (translatedValue) {
+                        variant.translatedValues.push(translatedValue);
+                    }
+                }
+
+                console.log(`[${importId}] Translated variant "${variant.name}" -> "${variant.translatedName}" with ${variant.translatedValues.length} values`);
+            }
         }
+
+        // Update database with translated title
+        await db.updateImport(importId, { title: productData.translatedTitle });
 
         // Step 3: Generate SEO fields
         console.log(`[${importId}] Step 3: Generating SEO fields...`);
-        const seoScript = `
-import sys
-import json
-from services.ai_translator import AITranslator
-
-title = sys.argv[1]
-description = sys.argv[2] if len(sys.argv) > 2 else ''
-
-translator = AITranslator()
-result = translator.generate_seo_fields(title, description)
-print(json.dumps(result))
-`;
-
-        const seoScriptPath = path.join(__dirname, '../temp_seo_script.py');
-        await fs.writeFile(seoScriptPath, seoScript);
-
-        let seoResult;
-        try {
-            seoResult = await executePython(seoScriptPath, [
-                productData.title,
-                productData.translatedDescription
-            ]);
-        } catch (error) {
-            console.warn(`[${importId}] SEO generation failed, using defaults`);
-            seoResult = {
-                success: true,
-                seo_title: productData.title.substring(0, 60),
-                seo_description: productData.translatedDescription.substring(0, 160)
-            };
-        } finally {
-            // Clean up temp script
-            await fs.unlink(seoScriptPath).catch(() => { });
-        }
+        const seoResult = await translator.generateSeoFields(
+            productData.translatedTitle,
+            productData.translatedDescription
+        );
+        console.log(`[${importId}] SEO generated: ${seoResult.seo_title}`);
 
         // Step 4: Process images (optional optimization)
         console.log(`[${importId}] Step 4: Processing ${productData.images.length} images...`);
@@ -178,8 +190,41 @@ print(json.dumps(result))
         console.log(`[${importId}] Step 5: Creating product in Shopify...`);
         const shopifyService = new ShopifyService();
 
+        // Prepare translated variant data for Shopify
+        const translatedVariantData = productData.variants
+            .filter(v => {
+                // Only include variants with valid translated values
+                const hasValues = (v.translatedValues && v.translatedValues.length > 0) || (v.values && v.values.length > 0);
+                const hasName = (v.translatedName || v.name);
+                return hasValues && hasName;
+            })
+            .map(v => {
+                const name = (v.translatedName || v.name).substring(0, 50).trim();
+                const values = (v.translatedValues || v.values)
+                    .filter(val => val && val.length > 0)
+                    .slice(0, 100) // Shopify limit: 100 variants per option
+                    .map(val => {
+                        // Ensure each value is within Shopify's 255 char limit
+                        if (typeof val === 'string' && val.length > 255) {
+                            return val.substring(0, 252) + '...';
+                        }
+                        return val;
+                    });
+
+                return {
+                    name: name,
+                    values: values
+                };
+            })
+            .slice(0, 3); // Shopify allows max 3 variant options
+
+        console.log(`[${importId}] Prepared ${translatedVariantData.length} variant options for Shopify`);
+        translatedVariantData.forEach(v => {
+            console.log(`[${importId}]   - ${v.name}: ${v.values.length} values (${v.values.slice(0, 3).join(', ')}${v.values.length > 3 ? '...' : ''})`);
+        });
+
         const shopifyResult = await shopifyService.createProduct({
-            title: productData.title,
+            title: productData.translatedTitle,
             description: productData.translatedDescription,
             vendor: 'China Supplier',
             productType: '1688 Import',
@@ -190,7 +235,7 @@ print(json.dumps(result))
             seoDescription: seoResult.seo_description,
             priceMin: productData.price_min,
             priceMax: productData.price_max,
-            variantData: productData.variants
+            variantData: translatedVariantData
         });
 
         if (!shopifyResult.success) {

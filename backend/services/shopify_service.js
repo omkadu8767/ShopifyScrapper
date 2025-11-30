@@ -51,6 +51,24 @@ class ShopifyService {
     }
 
     /**
+     * Sanitize variant value to meet Shopify requirements
+     */
+    sanitizeVariantValue(value) {
+        if (!value || typeof value !== 'string') {
+            return 'Default';
+        }
+
+        // Trim and limit to 255 characters (Shopify's limit)
+        let sanitized = value.trim();
+        if (sanitized.length > 255) {
+            sanitized = sanitized.substring(0, 252) + '...';
+        }
+
+        // Return default if empty after sanitization
+        return sanitized || 'Default';
+    }
+
+    /**
      * Generate variants from variant data
      */
     generateVariants(variantData, basePrice) {
@@ -66,12 +84,13 @@ class ShopifyService {
 
         // Generate all combinations
         const variants = [];
+        const MAX_VARIANTS = 100; // Shopify limit
 
         if (variantData.length === 1) {
             // Single option (e.g., only color)
-            variantData[0].values.forEach(value => {
+            variantData[0].values.slice(0, MAX_VARIANTS).forEach(value => {
                 variants.push({
-                    option1: value,
+                    option1: this.sanitizeVariantValue(value),
                     price: this.calculatePrice(basePrice).toFixed(2),
                     inventory_quantity: 0,
                     inventory_management: 'shopify'
@@ -81,9 +100,10 @@ class ShopifyService {
             // Two options (e.g., color and size)
             variantData[0].values.forEach(value1 => {
                 variantData[1].values.forEach(value2 => {
+                    if (variants.length >= MAX_VARIANTS) return;
                     variants.push({
-                        option1: value1,
-                        option2: value2,
+                        option1: this.sanitizeVariantValue(value1),
+                        option2: this.sanitizeVariantValue(value2),
                         price: this.calculatePrice(basePrice).toFixed(2),
                         inventory_quantity: 0,
                         inventory_management: 'shopify'
@@ -95,9 +115,11 @@ class ShopifyService {
             variantData[0].values.forEach(value1 => {
                 variantData[1].values.forEach(value2 => {
                     variantData[2].values.forEach(value3 => {
+                        if (variants.length >= MAX_VARIANTS) return;
                         variants.push({
-                            option1: value1,
-                            option2: value2,
+                            option1: this.sanitizeVariantValue(value1),
+                            option2: this.sanitizeVariantValue(value2),
+                            option3: this.sanitizeVariantValue(value3),
                             option3: value3,
                             price: this.calculatePrice(basePrice).toFixed(2),
                             inventory_quantity: 0,

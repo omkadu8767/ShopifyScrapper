@@ -79,15 +79,25 @@ function App() {
     const pollImportStatus = async (importId) => {
         const maxAttempts = 60;
         let attempts = 0;
+        let lastTitle = '';
 
         const poll = async () => {
             try {
                 const response = await axios.get(`${API_BASE}/import/${importId}`);
                 const importData = response.data.import;
 
+                // Show translated title when available
+                if (importData.title && importData.title !== lastTitle) {
+                    lastTitle = importData.title;
+                    addLog(`📝 Product: ${importData.title}`, 'success');
+                }
+
                 if (importData.status === 'completed') {
                     addLog('✅ Product successfully imported to Shopify!', 'success');
                     addLog(`Shopify Product ID: ${importData.shopify_product_id}`, 'success');
+                    if (importData.shopify_product_id) {
+                        addLog(`View product in Shopify admin`, 'info');
+                    }
                     setLoading(false);
                     loadHistory();
                     setUrl('');
@@ -98,12 +108,25 @@ function App() {
                     loadHistory();
                 } else if (attempts < maxAttempts) {
                     attempts++;
-                    if (attempts % 5 === 0) {
-                        addLog('Still processing... please wait', 'info');
+
+                    // Show progress indicators based on time
+                    if (attempts === 2) {
+                        addLog('🔍 Scraping product details...', 'info');
+                    } else if (attempts === 4) {
+                        addLog('🌐 Translating title and description...', 'info');
+                    } else if (attempts === 6) {
+                        addLog('🎨 Translating variants and options...', 'info');
+                    } else if (attempts === 8) {
+                        addLog('📸 Processing images...', 'info');
+                    } else if (attempts === 10) {
+                        addLog('🚀 Uploading to Shopify...', 'info');
+                    } else if (attempts % 5 === 0) {
+                        addLog('⏳ Still processing... please wait', 'info');
                     }
-                    setTimeout(poll, 5000);
+
+                    setTimeout(poll, 3000); // Poll every 3 seconds
                 } else {
-                    addLog('Timeout: Import is taking longer than expected. Check history for status.', 'error');
+                    addLog('⏱️ Timeout: Import is taking longer than expected. Check history for status.', 'error');
                     setLoading(false);
                     loadHistory();
                 }
@@ -111,7 +134,7 @@ function App() {
                 console.error('Polling error:', error);
                 if (attempts < maxAttempts) {
                     attempts++;
-                    setTimeout(poll, 5000);
+                    setTimeout(poll, 3000);
                 } else {
                     setLoading(false);
                     loadHistory();

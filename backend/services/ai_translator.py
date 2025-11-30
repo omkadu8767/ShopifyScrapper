@@ -13,25 +13,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 try:
-    import google.generativeai as genai
+    from openai import OpenAI
 except ImportError:
     print(json.dumps({
         'success': False,
-        'error': 'google-generativeai not installed. Run: pip install google-generativeai'
+        'error': 'openai not installed. Run: pip install openai'
     }))
     sys.exit(1)
 
 
 class AITranslator:
     def __init__(self, api_key=None, target_language='ro'):
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         self.target_language = target_language or os.getenv('TARGET_LANGUAGE', 'ro')
         
         if not self.api_key:
-            raise ValueError('GEMINI_API_KEY not provided')
+            raise ValueError('OPENAI_API_KEY not provided')
         
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.client = OpenAI(api_key=self.api_key)
+        self.model = 'gpt-4o-mini'  # Fast and cost-effective
         
         # Language mapping
         self.lang_names = {
@@ -73,8 +73,16 @@ Requirements:
 
 Output format: Clean HTML suitable for Shopify product description field."""
 
-            response = self.model.generate_content(prompt)
-            translated_text = response.text
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a professional e-commerce product description writer and translator."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            translated_text = response.choices[0].message.content
             
             # Clean up the response
             translated_text = self._clean_html(translated_text)
@@ -111,8 +119,16 @@ Generate:
 Return ONLY a JSON object with keys: "seo_title" and "seo_description"
 No markdown, no code blocks, just the JSON object."""
 
-            response = self.model.generate_content(prompt)
-            result_text = response.text.strip()
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an SEO expert. Return only valid JSON, no markdown."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=200
+            )
+            result_text = response.choices[0].message.content.strip()
             
             # Try to parse JSON from response
             # Remove markdown code blocks if present

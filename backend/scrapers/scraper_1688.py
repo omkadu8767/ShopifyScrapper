@@ -133,33 +133,100 @@ class Product1688Scraper:
             print(f"Error extracting price: {e}", file=sys.stderr)
 
     def _extract_images(self, page, soup):
-        """Extract all product images"""
+        """Extract all product images with improved strategy"""
         try:
-            # Get all images from the page
+            # Scroll to trigger lazy loading
+            page.evaluate('window.scrollTo(0, document.body.scrollHeight / 3)')
+            time.sleep(2)
+            
+            # Try to click on image thumbnails to load high-res versions
+            try:
+                page.evaluate('''() => {
+                    const thumbs = document.querySelectorAll('[class*="gallery"] img, [class*="thumb"] img, [class*="preview"] img');
+                    thumbs.forEach(thumb => thumb.click());
+                }''')
+                time.sleep(1)
+            except:
+                pass
+            
+            # Extract images with multiple strategies
             images = page.evaluate('''() => {
-                const imageElements = document.querySelectorAll('img[src*="img.alicdn.com"]');
                 const imageUrls = new Set();
                 
-                imageElements.forEach(img => {
-                    let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
-                    if (src && !src.includes('video') && !src.includes('icon')) {
-                        // Get high-res version
-                        src = src.replace(/_\\d+x\\d+\\./, '.');
+                // Strategy 1: Gallery/Preview images
+                const galleryImages = document.querySelectorAll(
+                    '.gallery img, .image-gallery img, [class*="gallery"] img, ' +
+                    '[class*="preview"] img, [class*="thumb"] img, [id*="gallery"] img'
+                );
+                
+                // Strategy 2: Main product images
+                const productImages = document.querySelectorAll(
+                    '.detail-gallery img, .mod-detail-gallery img, ' +
+                    '[class*="detail-image"] img, [class*="product-image"] img'
+                );
+                
+                // Strategy 3: All alicdn images (fallback)
+                const allImages = document.querySelectorAll('img[src*="img.alicdn.com"], img[data-src*="img.alicdn.com"]');
+                
+                // Combine all strategies
+                [...galleryImages, ...productImages, ...allImages].forEach(img => {
+                    // Try multiple attributes
+                    let src = img.src || 
+                             img.getAttribute('data-src') || 
+                             img.getAttribute('data-lazy-src') ||
+                             img.getAttribute('data-original') ||
+                             img.getAttribute('data-img');
+                    
+                    if (src) {
+                        // Filter out videos, icons, and UI elements
+                        if (src.includes('video') || 
+                            src.includes('.mp4') ||
+                            src.includes('.webm') ||
+                            src.includes('.mov') ||
+                            src.includes('.avi') ||
+                            src.includes('icon') || 
+                            src.includes('logo') ||
+                            src.includes('placeholder') ||
+                            src.includes('/tb/') ||
+                            src.includes('40x40') ||
+                            src.includes('50x50') ||
+                            src.includes('60x60')) {
+                            return;
+                        }
+                        
+                        // Get highest resolution version
+                        src = src.replace(/_\\d+x\\d+\\./, '_800x800.');
                         src = src.replace(/\\.jpg_.*?\\.jpg/, '.jpg');
                         src = src.replace(/\\.png_.*?\\.png/, '.png');
-                        imageUrls.add(src);
+                        src = src.replace(/\\.webp_.*?\\.webp/, '.webp');
+                        
+                        // Remove query parameters that might limit size
+                        src = src.split('?')[0];
+                        
+                        // Ensure https protocol
+                        if (src.startsWith('//')) {
+                            src = 'https:' + src;
+                        }
+                        
+                        if (src.startsWith('http')) {
+                            imageUrls.add(src);
+                        }
                     }
                 });
                 
                 return Array.from(imageUrls);
             }''')
 
-            # Filter and clean URLs
+            # Deduplicate and add to data
+            seen = set()
             for img_url in images:
-                if img_url.startswith('//'):
-                    img_url = 'https:' + img_url
-                if img_url and img_url not in self.data['images']:
+                # Normalize URL for deduplication
+                normalized = img_url.split('?')[0].replace('_800x800', '')
+                if normalized not in seen:
+                    seen.add(normalized)
                     self.data['images'].append(img_url)
+            
+            print(f"Found {len(self.data['images'])} unique images", file=sys.stderr)
 
         except Exception as e:
             print(f"Error extracting images: {e}", file=sys.stderr)
