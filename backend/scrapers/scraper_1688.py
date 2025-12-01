@@ -271,9 +271,12 @@ class Product1688Scraper:
                         // Ensure https protocol
                         if (src.startsWith('//')) {
                             src = 'https:' + src;
+                        } else if (src.startsWith('http://')) {
+                            src = src.replace('http://', 'https://');
                         }
                         
-                        if (src.startsWith('http')) {
+                        // Only add valid HTTPS image URLs from alicdn
+                        if (src.startsWith('https://') && src.includes('alicdn.com')) {
                             imageUrls.add(src);
                         }
                     }

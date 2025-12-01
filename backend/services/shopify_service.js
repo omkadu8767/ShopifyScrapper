@@ -230,6 +230,11 @@ class ShopifyService {
                 alt: `${title} - image ${index + 1}`
             }));
 
+            console.log(`Shopify: Preparing ${shopifyImages.length} images for upload`);
+            if (shopifyImages.length > 0) {
+                console.log(`Shopify: First image (thumbnail): ${shopifyImages[0].src.substring(0, 100)}`);
+            }
+
             // Create product payload
             const payload = {
                 product: {
@@ -252,6 +257,11 @@ class ShopifyService {
                 payload,
                 { headers: this.headers }
             );
+
+            console.log(`Shopify: Product created with ${response.data.product.images?.length || 0} images`);
+            if (response.data.product.images?.length > 0) {
+                console.log(`Shopify: First image ID: ${response.data.product.images[0].id}, src: ${response.data.product.images[0].src?.substring(0, 100)}`);
+            }
 
             return {
                 success: true,

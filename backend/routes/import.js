@@ -213,13 +213,26 @@ async function processImport(importId, url) {
 
         console.log(`[${importId}] Filtered to ${validImages.length} valid images (removed ${productData.images.length - validImages.length} videos/invalid)`);
 
-        // Limit to 10 images for Shopify (free plan limit)
-        const processedImages = validImages.slice(0, 10);
+        // Ensure all images have proper HTTPS URLs
+        const processedImages = validImages
+            .map(url => {
+                // Ensure HTTPS protocol
+                if (url.startsWith('//')) {
+                    return 'https:' + url;
+                }
+                // Fix http to https for alicdn (they support https)
+                if (url.startsWith('http://') && url.includes('alicdn.com')) {
+                    return url.replace('http://', 'https://');
+                }
+                return url;
+            })
+            .filter(url => url.startsWith('https://')) // Only HTTPS images
+            .slice(0, 10); // Limit to 10 images for Shopify
 
-        // TODO: Optional OCR check for Chinese text in images
-        // This requires Tesseract OCR to be installed: https://github.com/tesseract-ocr/tesseract
-        // For now, images are used as-is
         console.log(`[${importId}] Using ${processedImages.length} images for Shopify`);
+        if (processedImages.length > 0) {
+            console.log(`[${importId}] First image (thumbnail): ${processedImages[0].substring(0, 80)}...`);
+        }
 
         // Step 5: Upload to Shopify
         console.log(`[${importId}] Step 5: Creating product in Shopify...`);
