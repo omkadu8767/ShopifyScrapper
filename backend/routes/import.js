@@ -181,47 +181,97 @@ async function processImport(importId, url) {
         );
         console.log(`[${importId}] SEO generated: ${seoResult.seo_title}`);
 
-        // Step 4: Process images (optional optimization)
-        console.log(`[${importId}] Step 4: Processing ${productData.images.length} images...`);
-        // For now, use images directly. Can add processing later.
-        const processedImages = productData.images.slice(0, 10); // Limit to 10 images
+        // Step 4: Filter and process images
+        console.log(`[${importId}] Step 4: Filtering ${productData.images.length} images...`);
+
+        // Filter out videos and invalid images
+        const validImages = productData.images.filter(url => {
+            const lowerUrl = url.toLowerCase();
+
+            // Skip video files
+            if (lowerUrl.includes('.mp4') ||
+                lowerUrl.includes('.webm') ||
+                lowerUrl.includes('.mov') ||
+                lowerUrl.includes('.avi') ||
+                lowerUrl.includes('.flv') ||
+                lowerUrl.includes('/video/') ||
+                lowerUrl.includes('videocover')) {
+                return false;
+            }
+
+            // Allow all images from alicdn (1688's CDN) - they're already validated by scraper
+            if (lowerUrl.includes('img.alicdn.com') || lowerUrl.includes('cbu01.alicdn.com')) {
+                return true;
+            }
+
+            // For other domains, check for valid image extensions
+            return lowerUrl.includes('.jpg') ||
+                lowerUrl.includes('.jpeg') ||
+                lowerUrl.includes('.png') ||
+                lowerUrl.includes('.webp');
+        });
+
+        console.log(`[${importId}] Filtered to ${validImages.length} valid images (removed ${productData.images.length - validImages.length} videos/invalid)`);
+
+        // Limit to 10 images for Shopify (free plan limit)
+        const processedImages = validImages.slice(0, 10);
+
+        // TODO: Optional OCR check for Chinese text in images
+        // This requires Tesseract OCR to be installed: https://github.com/tesseract-ocr/tesseract
+        // For now, images are used as-is
+        console.log(`[${importId}] Using ${processedImages.length} images for Shopify`);
 
         // Step 5: Upload to Shopify
         console.log(`[${importId}] Step 5: Creating product in Shopify...`);
         const shopifyService = new ShopifyService();
 
         // Prepare translated variant data for Shopify
-        const translatedVariantData = productData.variants
-            .filter(v => {
-                // Only include variants with valid translated values
-                const hasValues = (v.translatedValues && v.translatedValues.length > 0) || (v.values && v.values.length > 0);
-                const hasName = (v.translatedName || v.name);
-                return hasValues && hasName;
-            })
-            .map(v => {
-                const name = (v.translatedName || v.name).substring(0, 50).trim();
-                const values = (v.translatedValues || v.values)
-                    .filter(val => val && val.length > 0)
-                    .slice(0, 100) // Shopify limit: 100 variants per option
-                    .map(val => {
-                        // Ensure each value is within Shopify's 255 char limit
-                        if (typeof val === 'string' && val.length > 255) {
-                            return val.substring(0, 252) + '...';
-                        }
-                        return val;
-                    });
+        let translatedVariantData = [];
 
-                return {
-                    name: name,
-                    values: values
-                };
-            })
-            .slice(0, 3); // Shopify allows max 3 variant options
+        if (productData.variants && productData.variants.length > 0) {
+            translatedVariantData = productData.variants
+                .filter(v => {
+                    // Only include variants with valid translated values
+                    const hasValues = (v.translatedValues && v.translatedValues.length > 0) || (v.values && v.values.length > 0);
+                    const hasName = (v.translatedName || v.name);
+                    return hasValues && hasName;
+                })
+                .map(v => {
+                    const name = (v.translatedName || v.name).substring(0, 50).trim();
+                    const values = (v.translatedValues || v.values)
+                        .filter(val => val && val.length > 0 && typeof val === 'string')
+                        .map(val => val.trim())
+                        .filter(val => val.length > 0) // Remove empty after trim
+                        .slice(0, 100) // Shopify limit: 100 variants per option
+                        .map(val => {
+                            // Ensure each value is within Shopify's 255 char limit
+                            if (val.length > 255) {
+                                return val.substring(0, 252) + '...';
+                            }
+                            return val;
+                        });
 
-        console.log(`[${importId}] Prepared ${translatedVariantData.length} variant options for Shopify`);
-        translatedVariantData.forEach(v => {
-            console.log(`[${importId}]   - ${v.name}: ${v.values.length} values (${v.values.slice(0, 3).join(', ')}${v.values.length > 3 ? '...' : ''})`);
-        });
+                    // Only return if we have valid values
+                    if (values.length > 0) {
+                        return {
+                            name: name,
+                            values: [...new Set(values)] // Remove duplicates
+                        };
+                    }
+                    return null;
+                })
+                .filter(v => v !== null) // Remove null entries
+                .slice(0, 3); // Shopify allows max 3 variant options
+        }
+
+        if (translatedVariantData.length === 0) {
+            console.log(`[${importId}] No valid variants found - will create single default variant`);
+        } else {
+            console.log(`[${importId}] Prepared ${translatedVariantData.length} variant options for Shopify`);
+            translatedVariantData.forEach(v => {
+                console.log(`[${importId}]   - ${v.name}: ${v.values.length} values (${v.values.slice(0, 3).join(', ')}${v.values.length > 3 ? '...' : ''})`);
+            });
+        }
 
         const shopifyResult = await shopifyService.createProduct({
             title: productData.translatedTitle,

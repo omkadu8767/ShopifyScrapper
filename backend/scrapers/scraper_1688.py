@@ -178,20 +178,50 @@ class Product1688Scraper:
                              img.getAttribute('data-img');
                     
                     if (src) {
-                        // Filter out videos, icons, and UI elements
-                        if (src.includes('video') || 
-                            src.includes('.mp4') ||
-                            src.includes('.webm') ||
-                            src.includes('.mov') ||
-                            src.includes('.avi') ||
-                            src.includes('icon') || 
-                            src.includes('logo') ||
-                            src.includes('placeholder') ||
-                            src.includes('/tb/') ||
-                            src.includes('40x40') ||
-                            src.includes('50x50') ||
-                            src.includes('60x60')) {
+                        // Comprehensive video filtering
+                        const lowerSrc = src.toLowerCase();
+                        if (lowerSrc.includes('video') || 
+                            lowerSrc.includes('.mp4') ||
+                            lowerSrc.includes('.webm') ||
+                            lowerSrc.includes('.mov') ||
+                            lowerSrc.includes('.avi') ||
+                            lowerSrc.includes('.flv') ||
+                            lowerSrc.includes('.m4v') ||
+                            lowerSrc.includes('/video/') ||
+                            lowerSrc.includes('videocover') ||
+                            lowerSrc.includes('video-cover') ||
+                            lowerSrc.includes('icon') || 
+                            lowerSrc.includes('logo') ||
+                            lowerSrc.includes('placeholder') ||
+                            lowerSrc.includes('/tb/') ||
+                            lowerSrc.includes('40x40') ||
+                            lowerSrc.includes('50x50') ||
+                            lowerSrc.includes('60x60')) {
                             return;
+                        }
+                        
+                        // Check if image appears to be a video thumbnail/poster
+                        const imgClass = (img.className || '').toLowerCase();
+                        const imgId = (img.id || '').toLowerCase();
+                        const imgAlt = (img.alt || '').toLowerCase();
+                        if (imgClass.includes('video') || 
+                            imgId.includes('video') ||
+                            imgAlt.includes('video') ||
+                            imgAlt.includes('play')) {
+                            return;
+                        }
+                        
+                        // Check parent elements for video context
+                        let parent = img.parentElement;
+                        for (let i = 0; i < 3 && parent; i++) {
+                            const parentClass = (parent.className || '').toLowerCase();
+                            const parentId = (parent.id || '').toLowerCase();
+                            if (parentClass.includes('video') || 
+                                parentId.includes('video') || 
+                                parent.tagName === 'VIDEO') {
+                                return;
+                            }
+                            parent = parent.parentElement;
                         }
                         
                         // Get highest resolution version

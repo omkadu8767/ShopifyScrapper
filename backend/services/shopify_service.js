@@ -75,7 +75,7 @@ class ShopifyService {
         if (!variantData || variantData.length === 0) {
             // No variants, return single default variant
             return [{
-                option1: 'Default',
+                option1: 'Default Title',
                 price: this.calculatePrice(basePrice).toFixed(2),
                 inventory_quantity: 0,
                 inventory_management: 'shopify'
@@ -85,46 +85,73 @@ class ShopifyService {
         // Generate all combinations
         const variants = [];
         const MAX_VARIANTS = 100; // Shopify limit
+        const seenCombinations = new Set(); // Track unique combinations
 
         if (variantData.length === 1) {
             // Single option (e.g., only color)
-            variantData[0].values.slice(0, MAX_VARIANTS).forEach(value => {
-                variants.push({
-                    option1: this.sanitizeVariantValue(value),
-                    price: this.calculatePrice(basePrice).toFixed(2),
-                    inventory_quantity: 0,
-                    inventory_management: 'shopify'
-                });
-            });
-        } else if (variantData.length === 2) {
-            // Two options (e.g., color and size)
-            variantData[0].values.forEach(value1 => {
-                variantData[1].values.forEach(value2 => {
-                    if (variants.length >= MAX_VARIANTS) return;
+            const uniqueValues = [...new Set(variantData[0].values)]; // Remove duplicates
+            uniqueValues.slice(0, MAX_VARIANTS).forEach(value => {
+                const sanitizedValue = this.sanitizeVariantValue(value);
+                if (!seenCombinations.has(sanitizedValue)) {
+                    seenCombinations.add(sanitizedValue);
                     variants.push({
-                        option1: this.sanitizeVariantValue(value1),
-                        option2: this.sanitizeVariantValue(value2),
+                        option1: sanitizedValue,
                         price: this.calculatePrice(basePrice).toFixed(2),
                         inventory_quantity: 0,
                         inventory_management: 'shopify'
                     });
-                });
+                }
             });
-        } else if (variantData.length >= 3) {
-            // Three options (e.g., color, size, material)
-            variantData[0].values.forEach(value1 => {
-                variantData[1].values.forEach(value2 => {
-                    variantData[2].values.forEach(value3 => {
-                        if (variants.length >= MAX_VARIANTS) return;
+        } else if (variantData.length === 2) {
+            // Two options (e.g., color and size)
+            const uniqueValues1 = [...new Set(variantData[0].values)];
+            const uniqueValues2 = [...new Set(variantData[1].values)];
+
+            uniqueValues1.forEach(value1 => {
+                uniqueValues2.forEach(value2 => {
+                    if (variants.length >= MAX_VARIANTS) return;
+                    const val1 = this.sanitizeVariantValue(value1);
+                    const val2 = this.sanitizeVariantValue(value2);
+                    const combo = `${val1}|${val2}`;
+
+                    if (!seenCombinations.has(combo)) {
+                        seenCombinations.add(combo);
                         variants.push({
-                            option1: this.sanitizeVariantValue(value1),
-                            option2: this.sanitizeVariantValue(value2),
-                            option3: this.sanitizeVariantValue(value3),
-                            option3: value3,
+                            option1: val1,
+                            option2: val2,
                             price: this.calculatePrice(basePrice).toFixed(2),
                             inventory_quantity: 0,
                             inventory_management: 'shopify'
                         });
+                    }
+                });
+            });
+        } else if (variantData.length >= 3) {
+            // Three options (e.g., color, size, material)
+            const uniqueValues1 = [...new Set(variantData[0].values)];
+            const uniqueValues2 = [...new Set(variantData[1].values)];
+            const uniqueValues3 = [...new Set(variantData[2].values)];
+
+            uniqueValues1.forEach(value1 => {
+                uniqueValues2.forEach(value2 => {
+                    uniqueValues3.forEach(value3 => {
+                        if (variants.length >= MAX_VARIANTS) return;
+                        const val1 = this.sanitizeVariantValue(value1);
+                        const val2 = this.sanitizeVariantValue(value2);
+                        const val3 = this.sanitizeVariantValue(value3);
+                        const combo = `${val1}|${val2}|${val3}`;
+
+                        if (!seenCombinations.has(combo)) {
+                            seenCombinations.add(combo);
+                            variants.push({
+                                option1: val1,
+                                option2: val2,
+                                option3: val3,
+                                price: this.calculatePrice(basePrice).toFixed(2),
+                                inventory_quantity: 0,
+                                inventory_management: 'shopify'
+                            });
+                        }
                     });
                 });
             });
