@@ -79,10 +79,23 @@ class Product1688Scraper:
     def _extract_title(self, page, soup):
         """Extract product title"""
         try:
-            # Try multiple selectors
+            # Company name keywords to filter out
+            company_keywords = ['公司', '有限公司', '科技有限', '集团', '股份', '企业']
+            
+            # Priority 1: Try #productTitle ID (most reliable for product title)
+            title_by_id = page.query_selector('#productTitle')
+            if title_by_id:
+                title = title_by_id.inner_text().strip()
+                if title and len(title) > 5:
+                    self.data['title'] = title
+                    print(f"Found title by #productTitle: {title}", file=sys.stderr)
+                    return
+            
+            # Priority 2: Try common title selectors
             selectors = [
-                'h1.title',
+                '.title-text',
                 '.d-title',
+                'h1.title',
                 'h1[class*="title"]',
                 '.mod-detail-title h1',
                 'div[class*="title"] h1'
@@ -91,14 +104,36 @@ class Product1688Scraper:
             for selector in selectors:
                 element = page.query_selector(selector)
                 if element:
-                    self.data['title'] = element.inner_text().strip()
-                    break
+                    title = element.inner_text().strip()
+                    # Filter out company names - they usually contain company keywords
+                    if title and len(title) > 5 and not any(keyword in title for keyword in company_keywords):
+                        self.data['title'] = title
+                        print(f"Found title by {selector}: {title}", file=sys.stderr)
+                        return
             
-            # Fallback to soup
+            # Priority 3: Fallback to soup
             if not self.data['title']:
                 title_elem = soup.find('h1', class_=re.compile('title|Title'))
                 if title_elem:
-                    self.data['title'] = title_elem.get_text().strip()
+                    title = title_elem.get_text().strip()
+                    # Check for company name
+                    if title and len(title) > 5 and not any(keyword in title for keyword in company_keywords):
+                        self.data['title'] = title
+                        print(f"Found title by soup: {title}", file=sys.stderr)
+                        return
+            
+            # Priority 4: Try meta tags
+            if not self.data['title']:
+                meta_title = soup.find('meta', property='og:title')
+                if meta_title and meta_title.get('content'):
+                    title = meta_title.get('content').strip()
+                    if title and len(title) > 5 and not any(keyword in title for keyword in company_keywords):
+                        self.data['title'] = title
+                        print(f"Found title in meta: {title}", file=sys.stderr)
+                        return
+            
+            if not self.data['title']:
+                print("Warning: Could not find product title", file=sys.stderr)
 
         except Exception as e:
             print(f"Error extracting title: {e}", file=sys.stderr)
