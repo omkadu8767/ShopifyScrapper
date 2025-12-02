@@ -113,7 +113,18 @@ async function processImport(importId, url) {
         }
 
         const productData = scrapeResult.data;
+
+        // Validate minimum required data
+        if (!productData.title || productData.title.length < 5) {
+            throw new Error('No product title found. The page might require CAPTCHA verification or the product does not exist.');
+        }
+
+        if (!productData.images || productData.images.length === 0) {
+            throw new Error('No product images found. The page might require CAPTCHA verification or the product does not exist.');
+        }
+
         console.log(`[${importId}] Scraped: ${productData.title}`);
+        console.log(`[${importId}] Found ${productData.images.length} images`);
 
         // Update import with title
         await db.updateImport(importId, { title: productData.title });

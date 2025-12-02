@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import time
 
 class Product1688Scraper:
-    def __init__(self, url, timeout=60000):
+    def __init__(self, url, timeout=120000):  # Increased to 2 minutes
         self.url = url
         self.timeout = timeout
         self.data = {
@@ -33,26 +33,183 @@ class Product1688Scraper:
         """Main scraping method"""
         try:
             with sync_playwright() as p:
-                # Launch browser
-                browser = p.chromium.launch(headless=True)
+                # Launch browser in visible mode to handle CAPTCHA
+                browser = p.chromium.launch(
+                    headless=False,
+                    args=[
+                        '--start-maximized',
+                        '--disable-blink-features=AutomationControlled'  # Hide automation
+                    ]
+                )
                 context = browser.new_context(
                     user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    viewport={'width': 1920, 'height': 1080}
+                    viewport={'width': 1920, 'height': 1080},
+                    no_viewport=True,  # Use full window size
+                    accept_downloads=False,
+                    java_script_enabled=True,
+                    locale='zh-CN',  # Set Chinese locale for better compatibility
+                    timezone_id='Asia/Shanghai'
                 )
                 page = context.new_page()
                 
                 # Set longer timeout for page navigation
                 page.set_default_timeout(self.timeout)
 
-                # Navigate to page - use 'load' instead of 'networkidle' for faster loading
-                page.goto(self.url, timeout=self.timeout, wait_until='load')
+                print(f"Loading page: {self.url}", file=sys.stderr)
                 
-                # Wait for content to load
-                time.sleep(5)
+                # Navigate to page - use 'domcontentloaded' for faster initial load
+                try:
+                    page.goto(self.url, timeout=self.timeout, wait_until='domcontentloaded')
+                    print("Page loaded, waiting for content...", file=sys.stderr)
+                    time.sleep(3)  # Give page time to initialize
+                except Exception as e:
+                    print(f"Page load warning: {e}", file=sys.stderr)
                 
-                # Get page content
+                # Wait for key elements to load (with timeout)
+                try:
+                    # Wait for either title or images to appear
+                    page.wait_for_selector('h1, img[src*="alicdn"]', timeout=15000)
+                    print("Key elements detected on page", file=sys.stderr)
+                except:
+                    print("Warning: Key elements not detected, proceeding anyway...", file=sys.stderr)
+                
+                # Wait additional time for JavaScript to render content
+                time.sleep(8)
+                
+                # Check if we're blocked or need verification
+                try:
+                    # Wait for page to be stable first
+                    page.wait_for_load_state('domcontentloaded', timeout=10000)
+                    page_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                except Exception as e:
+                    if 'navigation' in str(e).lower() or 'context' in str(e).lower():
+                        print(f"Page is navigating, waiting...", file=sys.stderr)
+                        time.sleep(5)
+                        try:
+                            page.wait_for_load_state('domcontentloaded', timeout=15000)
+                            page_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                        except:
+                            page_text = ""
+                    else:
+                        print(f"Warning: Could not check page text: {e}", file=sys.stderr)
+                        page_text = ""
+                
+                if '验证' in page_text or 'verify' in page_text.lower() or 'captcha' in page_text.lower() or '人机' in page_text or '滑动' in page_text:
+                    print("⚠️  CAPTCHA DETECTED! Please solve it in the browser window NOW.", file=sys.stderr)
+                    print("⚠️  The browser will wait for you to complete the verification.", file=sys.stderr)
+                    
+                    # Wait and check multiple times if CAPTCHA is solved
+                    max_wait_time = 120  # 2 minutes max
+                    check_interval = 5   # Check every 5 seconds
+                    elapsed = 0
+                    
+                    while elapsed < max_wait_time:
+                        time.sleep(check_interval)
+                        elapsed += check_interval
+                        
+                        # Check if CAPTCHA is gone - with error handling for navigation
+                        try:
+                            current_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                        except Exception as nav_error:
+                            # Page might be navigating during CAPTCHA solving
+                            if 'navigation' in str(nav_error).lower() or 'context' in str(nav_error).lower():
+                                print("Page is navigating, waiting for it to stabilize...", file=sys.stderr)
+                                time.sleep(5)
+                                try:
+                                    # Wait for navigation to complete
+                                    page.wait_for_load_state('domcontentloaded', timeout=10000)
+                                    current_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                                except:
+                                    # Still navigating, continue waiting
+                                    continue
+                            else:
+                                continue
+                        
+                        if '验证' not in current_text and '人机' not in current_text and '滑动' not in current_text:
+                            print("✓ CAPTCHA appears to be solved! Continuing...", file=sys.stderr)
+                            time.sleep(5)  # Extra wait for page to stabilize
+                            break
+                        
+                        if elapsed % 15 == 0:  # Print reminder every 15 seconds
+                            print(f"Still waiting for CAPTCHA... ({max_wait_time - elapsed}s remaining)", file=sys.stderr)
+                    
+                    if elapsed >= max_wait_time:
+                        raise Exception("CAPTCHA was not solved within the time limit. Please try again.")
+                    
+                    print("✓ CAPTCHA solved! Waiting for page to reload content...", file=sys.stderr)
+                    
+                    # Wait for any navigation to complete after CAPTCHA
+                    try:
+                        page.wait_for_load_state('networkidle', timeout=15000)
+                        print("✓ Page navigation completed", file=sys.stderr)
+                    except:
+                        print("Using domcontentloaded fallback", file=sys.stderr)
+                        try:
+                            page.wait_for_load_state('domcontentloaded', timeout=10000)
+                        except:
+                            pass
+                    
+                    # Wait for page to reload and content to appear after CAPTCHA
+                    time.sleep(5)
+                    
+                    # Wait for product content to load
+                    try:
+                        page.wait_for_selector('h1, img[src*="alicdn"]', timeout=20000)
+                        print("✓ Product content detected after CAPTCHA", file=sys.stderr)
+                    except:
+                        print("Warning: Product content not immediately visible, continuing...", file=sys.stderr)
+                    
+                    time.sleep(3)  # Extra stabilization time
+                    
+                    # Scroll to trigger lazy loading after CAPTCHA
+                    page.evaluate('window.scrollTo(0, document.body.scrollHeight / 3)')
+                    time.sleep(2)
+                    page.evaluate('window.scrollTo(0, 0)')
+                    time.sleep(2)
+                
+                # Get fresh page content
                 content = page.content()
                 soup = BeautifulSoup(content, 'lxml')
+                
+                # Verify page loaded successfully
+                if len(content) < 1000:
+                    raise Exception("Page content too short - page may not have loaded properly")
+                
+                print(f"Page content loaded: {len(content)} bytes", file=sys.stderr)
+                
+                # Final check - make sure we're not still on CAPTCHA page or error page
+                final_check = page.evaluate('() => document.body ? document.body.innerText : ""')
+                final_check_lower = final_check.lower()
+                
+                if '验证' in final_check or '人机' in final_check or '滑动' in final_check:
+                    raise Exception("Still on CAPTCHA page. Please refresh and try again.")
+                
+                # Check for error messages
+                if ('出错' in final_check or 'error' in final_check_lower or 
+                    '错误' in final_check or 'something went wrong' in final_check_lower or
+                    '页面不存在' in final_check or 'page not found' in final_check_lower or
+                    '找不到' in final_check or '系统繁忙' in final_check):
+                    print(f"⚠️  Error page detected after CAPTCHA. Attempting to refresh...", file=sys.stderr)
+                    
+                    # Try refreshing the page once
+                    try:
+                        page.reload(wait_until='domcontentloaded', timeout=30000)
+                        time.sleep(5)
+                        
+                        # Check again
+                        retry_check = page.evaluate('() => document.body ? document.body.innerText : ""')
+                        if ('出错' in retry_check or 'error' in retry_check.lower() or 
+                            '错误' in retry_check or '找不到' in retry_check):
+                            raise Exception("Page still shows error after refresh. The product may not exist or URL is invalid.")
+                        
+                        print("✓ Page refreshed successfully", file=sys.stderr)
+                        
+                        # Get fresh content after refresh
+                        content = page.content()
+                        soup = BeautifulSoup(content, 'lxml')
+                        
+                    except Exception as e:
+                        raise Exception(f"1688 page shows an error. The product may not exist or there's a temporary issue: {str(e)}")
 
                 # Extract data
                 self._extract_title(page, soup)
@@ -62,8 +219,24 @@ class Product1688Scraper:
                 self._extract_description(page, soup)
                 self._extract_attributes(page, soup)
                 self._extract_sku(page, soup)
+                
+                print("Data extraction complete", file=sys.stderr)
+                time.sleep(2)  # Brief pause before closing
 
                 browser.close()
+
+                # Validate minimum required data
+                if not self.data['title'] or len(self.data['title']) < 5:
+                    return {
+                        'success': False,
+                        'error': 'Failed to extract product title. Page might require CAPTCHA verification.'
+                    }
+                
+                if len(self.data['images']) == 0:
+                    return {
+                        'success': False,
+                        'error': 'Failed to extract any images. Page might require CAPTCHA verification.'
+                    }
 
                 return {
                     'success': True,
