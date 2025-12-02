@@ -42,18 +42,34 @@ class Product1688Scraper:
                     ]
                 )
                 context = browser.new_context(
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     no_viewport=True,  # Use full window size
                     accept_downloads=False,
                     java_script_enabled=True,
                     locale='zh-CN',  # Set Chinese locale for better compatibility
-                    timezone_id='Asia/Shanghai'
+                    timezone_id='Asia/Shanghai',
+                    extra_http_headers={
+                        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                        'Sec-Fetch-Site': 'none',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-User': '?1',
+                        'Sec-Fetch-Dest': 'document',
+                    }
                 )
                 page = context.new_page()
                 
                 # Set longer timeout for page navigation
                 page.set_default_timeout(self.timeout)
+                
+                # Add human-like behavior - random mouse movements
+                try:
+                    page.mouse.move(100, 100)
+                    time.sleep(0.5)
+                    page.mouse.move(200, 300)
+                except:
+                    pass
 
                 print(f"Loading page: {self.url}", file=sys.stderr)
                 
@@ -94,12 +110,21 @@ class Product1688Scraper:
                         print(f"Warning: Could not check page text: {e}", file=sys.stderr)
                         page_text = ""
                 
-                if '验证' in page_text or 'verify' in page_text.lower() or 'captcha' in page_text.lower() or '人机' in page_text or '滑动' in page_text:
-                    print("⚠️  CAPTCHA DETECTED! Please solve it in the browser window NOW.", file=sys.stderr)
+                # Handle multiple CAPTCHAs (1688 sometimes shows multiple challenges)
+                captcha_attempts = 0
+                max_captcha_attempts = 5
+                
+                while captcha_attempts < max_captcha_attempts:
+                    if '验证' not in page_text and 'verify' not in page_text.lower() and 'captcha' not in page_text.lower() and '人机' not in page_text and '滑动' not in page_text:
+                        # No CAPTCHA detected
+                        break
+                    
+                    captcha_attempts += 1
+                    print(f"⚠️  CAPTCHA DETECTED (Attempt {captcha_attempts}/{max_captcha_attempts})! Please solve it in the browser window NOW.", file=sys.stderr)
                     print("⚠️  The browser will wait for you to complete the verification.", file=sys.stderr)
                     
                     # Wait and check multiple times if CAPTCHA is solved
-                    max_wait_time = 120  # 2 minutes max
+                    max_wait_time = 120  # 2 minutes max per CAPTCHA
                     check_interval = 5   # Check every 5 seconds
                     elapsed = 0
                     
@@ -136,7 +161,7 @@ class Product1688Scraper:
                     if elapsed >= max_wait_time:
                         raise Exception("CAPTCHA was not solved within the time limit. Please try again.")
                     
-                    print("✓ CAPTCHA solved! Waiting for page to reload content...", file=sys.stderr)
+                    print(f"✓ CAPTCHA {captcha_attempts} solved! Checking if more verification is needed...", file=sys.stderr)
                     
                     # Wait for any navigation to complete after CAPTCHA
                     try:
@@ -161,11 +186,29 @@ class Product1688Scraper:
                     
                     time.sleep(3)  # Extra stabilization time
                     
-                    # Scroll to trigger lazy loading after CAPTCHA
+                    # Check if another CAPTCHA appeared
+                    try:
+                        page_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                        if '验证' in page_text or '人机' in page_text or '滑动' in page_text:
+                            print("⚠️  Another CAPTCHA appeared! Continuing loop...", file=sys.stderr)
+                            continue  # Go back to start of while loop
+                        else:
+                            print("✓ No more CAPTCHAs detected!", file=sys.stderr)
+                            break  # Exit the CAPTCHA loop
+                    except:
+                        break  # If error, assume no more CAPTCHAs
+                
+                if captcha_attempts >= max_captcha_attempts:
+                    print("⚠️  Too many consecutive CAPTCHAs. Proceeding anyway...", file=sys.stderr)
+                
+                # Scroll to trigger lazy loading after all CAPTCHAs
+                try:
                     page.evaluate('window.scrollTo(0, document.body.scrollHeight / 3)')
                     time.sleep(2)
                     page.evaluate('window.scrollTo(0, 0)')
                     time.sleep(2)
+                except:
+                    pass
                 
                 # Get fresh page content
                 content = page.content()
