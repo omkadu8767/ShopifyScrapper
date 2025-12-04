@@ -16,6 +16,8 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from bs4 import BeautifulSoup
 import time
 import requests as req_lib
+from dotenv import load_dotenv
+load_dotenv()
 
 class Product1688Scraper:
     def __init__(self, url, timeout=120000):  # Increased to 2 minutes
@@ -646,70 +648,53 @@ class Product1688Scraper:
         # Use browser scraping with full stealth
         try:
             with sync_playwright() as p:
-                # Determine headless mode from environment
-                # Default to headless on Linux (servers don't have displays)
-                headless_mode = os.environ.get('HEADLESS_BROWSER', 'false').lower() == 'true'
-                
-                # Force headless on Linux servers (no display available)
+                # FORCE headless mode on Linux servers (Ubuntu/DigitalOcean)
+                # Always run headless on production servers
                 import platform
-                if platform.system() == 'Linux' and not os.environ.get('DISPLAY'):
+                if platform.system() == 'Linux':
                     headless_mode = True
-                    print("🐧 Linux server detected - forcing HEADLESS mode", file=sys.stderr)
-                
-                # Launch browser with maximum stealth
-                if headless_mode:
-                    print("🌐 Launching browser in HEADLESS mode (production)...", file=sys.stderr)
+                    print("🐧 Linux detected - HEADLESS mode enabled", file=sys.stderr)
                 else:
-                    print("🌐 Launching browser in VISIBLE mode (development)...", file=sys.stderr)
+                    # On Windows/Mac, check environment variable for testing
+                    headless_mode = os.environ.get('HEADLESS_BROWSER', 'false').lower() == 'true'
+                    if headless_mode:
+                        print("🌐 HEADLESS mode enabled via environment", file=sys.stderr)
+                    else:
+                        print("🌐 VISIBLE mode (development)", file=sys.stderr)
                 
-                try:
-                    # Try to use Chrome (more trusted than Chromium)
-                    browser = p.chromium.launch(
-                        channel="chrome",
-                        headless=headless_mode,
-                        args=[
-                            '--disable-blink-features=AutomationControlled',
-                            '--no-sandbox',
-                            '--disable-infobars',
-                            '--window-size=1920,1080',
-                            '--start-maximized',
-                            '--enable-automation=false',
-                        ]
-                    )
-                    print("✅ Using Chrome browser (less detectable)", file=sys.stderr)
-                except:
-                    # Fallback to Chromium
-                    print("⚠️ Chrome not found, using Chromium", file=sys.stderr)
-                    browser = p.chromium.launch(
-                        headless=headless_mode,
-                        args=[
-                            '--disable-blink-features=AutomationControlled',
-                            '--disable-dev-shm-usage',
-                            '--no-sandbox',
-                            '--disable-setuid-sandbox',
-                            '--disable-infobars',
-                            '--disable-gpu',
-                            '--disable-software-rasterizer',
-                            '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests',
-                            '--disable-web-security',
-                            '--allow-running-insecure-content',
-                            '--ignore-certificate-errors',
-                            '--window-size=1920,1080',
-                            '--start-maximized',
-                            '--no-first-run',
-                            '--no-default-browser-check',
-                            '--disable-popup-blocking',
-                            '--disable-translate',
-                            '--disable-background-timer-throttling',
-                            '--disable-backgrounding-occluded-windows',
-                            '--disable-renderer-backgrounding',
-                            '--disable-hang-monitor',
-                            '--disable-prompt-on-repost',
-                            '--disable-sync',
-                            '--metrics-recording-only',
-                            '--enable-automation=false',
-                        ]
-                    )
+                # Use Chromium directly (available on all platforms)
+                # Chrome channel not available on DigitalOcean
+                print("🌐 Launching Chromium browser...", file=sys.stderr)
+                browser = p.chromium.launch(
+                    headless=headless_mode,
+                    args=[
+                        '--disable-blink-features=AutomationControlled',
+                        '--disable-dev-shm-usage',
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-infobars',
+                        '--disable-gpu',
+                        '--disable-software-rasterizer',
+                        '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests',
+                        '--disable-web-security',
+                        '--allow-running-insecure-content',
+                        '--ignore-certificate-errors',
+                        '--window-size=1920,1080',
+                        '--no-first-run',
+                        '--no-default-browser-check',
+                        '--disable-popup-blocking',
+                        '--disable-translate',
+                        '--disable-background-timer-throttling',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-renderer-backgrounding',
+                        '--disable-hang-monitor',
+                        '--disable-prompt-on-repost',
+                        '--disable-sync',
+                        '--metrics-recording-only',
+                        '--enable-automation=false',
+                    ]
+                )
+                print(f"✅ Browser launched in {'HEADLESS' if headless_mode else 'VISIBLE'} mode", file=sys.stderr)
                 
                 # Use persistent context to save cookies between runs
                 session_path = str(self.session_dir / '1688_session')
