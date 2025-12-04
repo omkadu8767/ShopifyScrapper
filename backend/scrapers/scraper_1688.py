@@ -648,31 +648,28 @@ class Product1688Scraper:
         # Use browser scraping with full stealth
         try:
             with sync_playwright() as p:
-                # FORCE headless mode on Linux servers (Ubuntu/DigitalOcean)
-                # Always run headless on production servers
-                # FORCE headless on DigitalOcean (Linux server)
-                print("🌐 Launching Chromium browser...", file=sys.stderr)
-
+                # FORCE headless mode on DigitalOcean (Linux server)
                 headless_mode = True
                 print("🐧 DigitalOcean: Hard-coded HEADLESS mode enabled", file=sys.stderr)
-
                 
                 # Use Chromium directly (available on all platforms)
-                # Chrome channel not available on DigitalOcean
                 print("🌐 Launching Chromium browser...", file=sys.stderr)
+                
                 browser = p.chromium.launch(
                     headless=True,
+                    executable_path="/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome",
                     args=[
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-dev-shm-usage',
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-infobars',
-                        '--disable-gpu',
-                        '--disable-software-rasterizer',
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--single-process",
+                        "--no-zygote",
+                        "--disable-software-rasterizer",
+                        "--disable-blink-features=AutomationControlled",
                     ]
-)
-                print(f"✅ Browser launched in {'HEADLESS' if headless_mode else 'VISIBLE'} mode", file=sys.stderr)
+                )
+                print(f"✅ Browser launched in HEADLESS mode", file=sys.stderr)
                 
                 # Use persistent context to save cookies between runs
                 session_path = str(self.session_dir / '1688_session')
