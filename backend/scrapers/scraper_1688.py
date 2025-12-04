@@ -648,16 +648,11 @@ class Product1688Scraper:
         # Use browser scraping with full stealth
         try:
             with sync_playwright() as p:
-                # FORCE headless mode on DigitalOcean (Linux server)
-                headless_mode = True
-                print("🐧 DigitalOcean: Hard-coded HEADLESS mode enabled", file=sys.stderr)
-                
-                # Use Chromium directly (available on all platforms)
-                print("🌐 Launching Chromium browser...", file=sys.stderr)
+                # FORCE headless mode always (works on Windows, Linux, Mac)
+                print("🌐 Launching Chromium browser in HEADLESS mode...", file=sys.stderr)
                 
                 browser = p.chromium.launch(
                     headless=True,
-                    executable_path="/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome",
                     args=[
                         "--no-sandbox",
                         "--disable-setuid-sandbox",
@@ -669,7 +664,7 @@ class Product1688Scraper:
                         "--disable-blink-features=AutomationControlled",
                     ]
                 )
-                print(f"✅ Browser launched in HEADLESS mode", file=sys.stderr)
+                print(f"✅ Browser launched successfully in HEADLESS mode", file=sys.stderr)
                 
                 # Use persistent context to save cookies between runs
                 session_path = str(self.session_dir / '1688_session')
