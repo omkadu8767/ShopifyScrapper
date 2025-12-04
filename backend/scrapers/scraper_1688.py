@@ -661,7 +661,7 @@ class Product1688Scraper:
                 # Chrome channel not available on DigitalOcean
                 print("🌐 Launching Chromium browser...", file=sys.stderr)
                 browser = p.chromium.launch(
-                    headless=headless_mode,
+                    headless=True,
                     args=[
                         '--disable-blink-features=AutomationControlled',
                         '--disable-dev-shm-usage',
