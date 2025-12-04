@@ -101,30 +101,39 @@ Requirements:
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `You are a professional e-commerce copywriter for a Romanian online store.
+            const prompt = `You are an expert Shopify copywriter for premium Romanian e-commerce stores.
 
-Task: Translate and POLISH this Chinese product description into PROFESSIONAL ${targetLangName} for Shopify.
-
-Product Title: ${productTitle}
+Product: ${productTitle}
 
 Chinese Description:
 ${chineseText}
 
-Requirements:
-1. Translate ALL Chinese text to ${targetLangName}
-2. Remove ALL Chinese characters completely
-3. POLISH and make it sound PROFESSIONAL and APPEALING
-4. Use proper ${targetLangName} grammar and business language
-5. Structure with paragraphs and bullet points for readability
-6. Highlight key features and benefits (what customer gets)
-7. Make it persuasive and engaging
-8. NO emojis, NO special characters, NO informal language
-9. Return ONLY clean HTML: <p>, <ul>, <li>, <strong>, <br>
-10. Keep it 200-500 words
-11. Sound like a premium brand, not cheap marketplace
-12. For Romanian: Use professional tone, avoid literal translations
+Your task: Create a PROFESSIONAL Shopify product description in ${targetLangName}.
 
-Output format: Clean HTML for Shopify (start with <p> tag, no intro text).`;
+BAD Description (what NOT to do):
+❌ Direct translation of Chinese
+❌ "This product is made of high quality material"
+❌ Listing random specs without context
+❌ Cheap marketplace language
+
+GOOD Description Structure:
+✅ Opening paragraph: What it is + main benefit (2-3 sentences)
+✅ Key features in bullet points (3-5 points)
+✅ Quality/materials highlight
+✅ Usage scenarios or who it's for
+✅ Closing with value proposition
+
+Rules:
+1. NO Chinese characters - completely rewrite
+2. Professional ${targetLangName} business language
+3. Focus on BENEFITS not just features
+4. Use persuasive copywriting (without being salesy)
+5. Structure: <p>intro</p><ul><li>feature</li></ul><p>closing</p>
+6. 200-400 words total
+7. Sound like a premium brand (think IKEA, H&M style)
+8. For Romanian: Natural phrasing, not translated from Chinese
+
+Format: Clean HTML starting with <p> tag. NO intro text, start directly with description.`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
@@ -252,21 +261,31 @@ No markdown, no code blocks, just pure JSON.`;
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `You are a professional e-commerce copywriter. Translate and polish this product title from Chinese to ${targetLangName}.
+            const prompt = `You are a professional Shopify store copywriter. Transform this raw Chinese title into a POLISHED, PROFESSIONAL ${targetLangName} product title.
 
 Chinese Title: ${chineseTitle}
 
-Requirements:
-1. Translate to ${targetLangName} accurately
-2. Remove ALL Chinese characters
-3. Make it PROFESSIONAL and POLISHED for e-commerce
-4. Use proper capitalization (Title Case for English, Sentence case for Romanian)
-5. Remove any weird characters or numbers that don't make sense
-6. Make it clear, concise, and appealing to customers
-7. Keep it under 70 characters
-8. NO quotes, NO extra punctuation
+BAD Examples (what NOT to do):
+❌ "Geanta de mana pentru femei 2024 noua moda umar"
+❌ "Wholesale fashion lady handbag 2024 new style"
+❌ "女士手提包2024新款时尚" (Chinese characters left)
 
-Return ONLY the polished title, nothing else.`;
+GOOD Examples (what to do):
+✅ "Geantă Elegantă din Piele pentru Femei"
+✅ "Rucsac Modern Impermeabil cu Port USB"
+✅ "Ceas Inteligent Multifuncțional"
+
+Rules:
+1. NO Chinese characters whatsoever
+2. NO literal translation - REWRITE professionally
+3. NO marketplace language ("wholesale", "factory", "2024", "new arrival")
+4. Focus on WHAT IT IS, not when it was made
+5. Use professional ${targetLangName} that sounds premium
+6. Maximum 65 characters
+7. Capitalize first word only (Romanian style)
+8. NO quotes, NO punctuation at end
+
+Return ONLY the professional title:`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
@@ -280,8 +299,8 @@ Return ONLY the polished title, nothing else.`;
                         content: prompt
                     }
                 ],
-                temperature: 0.5,
-                max_tokens: 150
+                temperature: 0.7,
+                max_tokens: 200
             });
 
             let translatedTitle = response.choices[0].message.content.trim();
