@@ -101,9 +101,9 @@ Requirements:
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `You are a professional e-commerce product description writer.
+            const prompt = `You are a professional e-commerce copywriter for a Romanian online store.
 
-Task: Translate the following Chinese product description to ${targetLangName} and rewrite it as a professional, engaging Shopify product description.
+Task: Translate and POLISH this Chinese product description into PROFESSIONAL ${targetLangName} for Shopify.
 
 Product Title: ${productTitle}
 
@@ -113,24 +113,25 @@ ${chineseText}
 Requirements:
 1. Translate ALL Chinese text to ${targetLangName}
 2. Remove ALL Chinese characters completely
-3. Rewrite in a professional, marketing-friendly style
-4. Use proper paragraphs and bullet points for readability
-5. Highlight key features and benefits
-6. Make it SEO-friendly with relevant keywords
-7. NO emojis or special characters
-8. Return ONLY clean HTML using these tags: <p>, <ul>, <li>, <strong>, <br>
-9. Start directly with the description content
-10. Keep it between 150-400 words
-11. Focus on benefits, not just features
+3. POLISH and make it sound PROFESSIONAL and APPEALING
+4. Use proper ${targetLangName} grammar and business language
+5. Structure with paragraphs and bullet points for readability
+6. Highlight key features and benefits (what customer gets)
+7. Make it persuasive and engaging
+8. NO emojis, NO special characters, NO informal language
+9. Return ONLY clean HTML: <p>, <ul>, <li>, <strong>, <br>
+10. Keep it 200-500 words
+11. Sound like a premium brand, not cheap marketplace
+12. For Romanian: Use professional tone, avoid literal translations
 
-Output: Clean HTML suitable for Shopify product description field.`;
+Output format: Clean HTML for Shopify (start with <p> tag, no intro text).`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
                 messages: [
                     {
                         role: "system",
-                        content: "You are a professional e-commerce product description writer and translator. You create compelling, SEO-optimized product descriptions."
+                        content: "You are a professional e-commerce copywriter and translator specializing in polished, high-quality product descriptions. You write in a professional business tone that appeals to customers and builds trust. You never use informal language or direct translations - you adapt the content to sound natural and professional in the target language."
                     },
                     {
                         role: "user",
@@ -251,36 +252,52 @@ No markdown, no code blocks, just pure JSON.`;
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `Translate this product title from Chinese to ${targetLangName}. Make it clear, concise, and SEO-friendly. Remove ALL Chinese characters.
+            const prompt = `You are a professional e-commerce copywriter. Translate and polish this product title from Chinese to ${targetLangName}.
 
 Chinese Title: ${chineseTitle}
 
-Return ONLY the translated title, nothing else.`;
+Requirements:
+1. Translate to ${targetLangName} accurately
+2. Remove ALL Chinese characters
+3. Make it PROFESSIONAL and POLISHED for e-commerce
+4. Use proper capitalization (Title Case for English, Sentence case for Romanian)
+5. Remove any weird characters or numbers that don't make sense
+6. Make it clear, concise, and appealing to customers
+7. Keep it under 70 characters
+8. NO quotes, NO extra punctuation
+
+Return ONLY the polished title, nothing else.`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
                 messages: [
                     {
                         role: "system",
-                        content: "You are a professional translator. Translate product titles accurately and concisely."
+                        content: "You are a professional e-commerce copywriter and translator. Create polished, professional product titles."
                     },
                     {
                         role: "user",
                         content: prompt
                     }
                 ],
-                temperature: 0.3,
-                max_tokens: 100
+                temperature: 0.5,
+                max_tokens: 150
             });
 
-            const translatedTitle = response.choices[0].message.content.trim();
+            let translatedTitle = response.choices[0].message.content.trim();
 
             // Remove quotes if AI added them
-            const cleanTitle = translatedTitle.replace(/^["']|["']$/g, '');
+            translatedTitle = translatedTitle.replace(/^["']|["']$/g, '');
+
+            // Remove any remaining Chinese characters
+            translatedTitle = translatedTitle.replace(/[\u4e00-\u9fff]+/g, '');
+
+            // Clean up extra spaces
+            translatedTitle = translatedTitle.replace(/\s+/g, ' ').trim();
 
             return {
                 success: true,
-                translated_text: cleanTitle
+                translated_text: translatedTitle
             };
 
         } catch (error) {
