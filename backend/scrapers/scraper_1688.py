@@ -647,7 +647,14 @@ class Product1688Scraper:
         try:
             with sync_playwright() as p:
                 # Determine headless mode from environment
+                # Default to headless on Linux (servers don't have displays)
                 headless_mode = os.environ.get('HEADLESS_BROWSER', 'false').lower() == 'true'
+                
+                # Force headless on Linux servers (no display available)
+                import platform
+                if platform.system() == 'Linux' and not os.environ.get('DISPLAY'):
+                    headless_mode = True
+                    print("🐧 Linux server detected - forcing HEADLESS mode", file=sys.stderr)
                 
                 # Launch browser with maximum stealth
                 if headless_mode:
