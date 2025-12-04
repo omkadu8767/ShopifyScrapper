@@ -650,17 +650,12 @@ class Product1688Scraper:
             with sync_playwright() as p:
                 # FORCE headless mode on Linux servers (Ubuntu/DigitalOcean)
                 # Always run headless on production servers
-                import platform
-                if platform.system() == 'Linux':
-                    headless_mode = True
-                    print("🐧 Linux detected - HEADLESS mode enabled", file=sys.stderr)
-                else:
-                    # On Windows/Mac, check environment variable for testing
-                    headless_mode = os.environ.get('HEADLESS_BROWSER', 'false').lower() == 'true'
-                    if headless_mode:
-                        print("🌐 HEADLESS mode enabled via environment", file=sys.stderr)
-                    else:
-                        print("🌐 VISIBLE mode (development)", file=sys.stderr)
+                # FORCE headless on DigitalOcean (Linux server)
+                print("🌐 Launching Chromium browser...", file=sys.stderr)
+
+                headless_mode = True
+                print("🐧 DigitalOcean: Hard-coded HEADLESS mode enabled", file=sys.stderr)
+
                 
                 # Use Chromium directly (available on all platforms)
                 # Chrome channel not available on DigitalOcean
@@ -675,25 +670,8 @@ class Product1688Scraper:
                         '--disable-infobars',
                         '--disable-gpu',
                         '--disable-software-rasterizer',
-                        '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests',
-                        '--disable-web-security',
-                        '--allow-running-insecure-content',
-                        '--ignore-certificate-errors',
-                        '--window-size=1920,1080',
-                        '--no-first-run',
-                        '--no-default-browser-check',
-                        '--disable-popup-blocking',
-                        '--disable-translate',
-                        '--disable-background-timer-throttling',
-                        '--disable-backgrounding-occluded-windows',
-                        '--disable-renderer-backgrounding',
-                        '--disable-hang-monitor',
-                        '--disable-prompt-on-repost',
-                        '--disable-sync',
-                        '--metrics-recording-only',
-                        '--enable-automation=false',
                     ]
-                )
+)
                 print(f"✅ Browser launched in {'HEADLESS' if headless_mode else 'VISIBLE'} mode", file=sys.stderr)
                 
                 # Use persistent context to save cookies between runs
