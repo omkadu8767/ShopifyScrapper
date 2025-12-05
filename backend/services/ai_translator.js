@@ -101,39 +101,70 @@ Requirements:
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `You are an expert Shopify copywriter for premium Romanian e-commerce stores.
+            const prompt = `You are a premium Shopify product description writer for successful ${targetLangName} e-commerce stores. Write like top brands: Zara, H&M, Sephora, IKEA.
 
 Product: ${productTitle}
 
 Chinese Description:
 ${chineseText}
 
-Your task: Create a PROFESSIONAL Shopify product description in ${targetLangName}.
+❌ BAD Description (what NOT to write):
+"Această geantă este produsă din materiale de înaltă calitate. Are un design modern și este foarte bună. Vă va plăcea cu siguranță acest produs. Este perfectă pentru utilizare zilnică."
 
-BAD Description (what NOT to do):
-❌ Direct translation of Chinese
-❌ "This product is made of high quality material"
-❌ Listing random specs without context
-❌ Cheap marketplace language
+Why BAD?
+- Generic phrases ("high quality", "modern design", "you will love")
+- No specific details
+- Sounds like machine translation
+- No personality or brand voice
 
-GOOD Description Structure:
-✅ Opening paragraph: What it is + main benefit (2-3 sentences)
-✅ Key features in bullet points (3-5 points)
-✅ Quality/materials highlight
-✅ Usage scenarios or who it's for
-✅ Closing with value proposition
+✅ GOOD Description Example:
+"<p>Această geantă elegantă din piele ecologică îmbină stilul contemporan cu funcționalitatea practică. Perfectă pentru femeia modernă care apreciază detaliile rafinate și organizarea eficientă.</p>
 
-Rules:
-1. NO Chinese characters - completely rewrite
-2. Professional ${targetLangName} business language
-3. Focus on BENEFITS not just features
-4. Use persuasive copywriting (without being salesy)
-5. Structure: <p>intro</p><ul><li>feature</li></ul><p>closing</p>
-6. 200-400 words total
-7. Sound like a premium brand (think IKEA, H&M style)
-8. For Romanian: Natural phrasing, not translated from Chinese
+<ul>
+<li><strong>Design versatil</strong> – se potrivește atât pentru birou cât și pentru ieșirile casual</li>
+<li><strong>Compartimente multiple</strong> – buzunar pentru laptop până la 14", buzunare interioare pentru telefon și card-uri</li>
+<li><strong>Material durabil</strong> – piele ecologică rezistentă la zgârieturi, cusături întărite</li>
+<li><strong>Dimensiuni optime</strong> – 35cm x 28cm x 12cm, suficient spațiu fără să fie voluminoasă</li>
+</ul>
 
-Format: Clean HTML starting with <p> tag. NO intro text, start directly with description.`;
+<p>Cu bareta ajustabilă și mânerele ergonomice, această geantă oferă confort pe tot parcursul zilei. Închiderea cu fermoar asigură protecția obiectelor personale.</p>"
+
+Why GOOD?
+- Specific details (dimensions, materials, features)
+- Benefits explained (not just listed)
+- Professional Romanian phrasing
+- Structured with HTML
+- Sounds human, not translated
+
+YOUR TASK - Create description following this structure:
+
+1. Opening Paragraph (2-3 sentences):
+   - What is it + main appeal
+   - Who is it for
+   - Key benefit that makes it special
+
+2. Feature List (4-6 bullet points with <strong> tags):
+   - Each point: Feature name + specific benefit
+   - Use measurements, materials, technical details
+   - Explain WHY it matters (benefit)
+
+3. Closing Paragraph (1-2 sentences):
+   - Additional value points
+   - Usage scenario or final benefit
+
+STRICT Rules:
+1. ZERO Chinese characters
+2. NO generic phrases: "high quality", "fashionable", "perfect gift", "you will love"
+3. BE SPECIFIC: use actual numbers, materials, dimensions
+4. NATURAL ${targetLangName}: sound like a native speaker, not translation
+5. HTML format: <p>, <ul>, <li>, <strong>
+6. 250-450 words
+7. Professional tone: confident but not pushy
+8. Focus on BENEFITS not just features
+9. For Romanian: use diacritice (ă, â, î, ș, ț)
+10. NO time references (2024, 2025, new, latest)
+
+Start directly with <p> tag. NO intro, NO explanations, just the description:`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
@@ -261,31 +292,36 @@ No markdown, no code blocks, just pure JSON.`;
         try {
             const targetLangName = this.languageNames[this.targetLanguage] || 'English';
 
-            const prompt = `You are a professional Shopify store copywriter. Transform this raw Chinese title into a POLISHED, PROFESSIONAL ${targetLangName} product title.
+            const prompt = `You are an expert Shopify product title writer. Transform this Chinese title into a PREMIUM, PROFESSIONAL ${targetLangName} product title that would appear on high-end online stores.
 
 Chinese Title: ${chineseTitle}
 
-BAD Examples (what NOT to do):
-❌ "Geanta de mana pentru femei 2024 noua moda umar"
-❌ "Wholesale fashion lady handbag 2024 new style"
-❌ "女士手提包2024新款时尚" (Chinese characters left)
+❌ BAD Examples (cheap marketplace style):
+- "Geanta de mana pentru femei 2024 noua moda umar"
+- "Fashion Ladies Bag Wholesale Price Hot Sale"
+- "New Arrival Women Handbag Latest Design"
+- Any title with: wholesale, factory, 2024, 2025, hot, new, latest
 
-GOOD Examples (what to do):
-✅ "Geantă Elegantă din Piele pentru Femei"
-✅ "Rucsac Modern Impermeabil cu Port USB"
-✅ "Ceas Inteligent Multifuncțional"
+✅ GOOD Examples (premium Shopify style):
+- "Geantă Elegantă din Piele Naturală"
+- "Rucsac Urban Impermeabil cu Port USB"
+- "Ceas Inteligent cu Monitor Cardiac"
+- "Cercei din Argint 925 cu Cristale"
+- "Rochie de Seară cu Decolteu în V"
 
-Rules:
-1. NO Chinese characters whatsoever
-2. NO literal translation - REWRITE professionally
-3. NO marketplace language ("wholesale", "factory", "2024", "new arrival")
-4. Focus on WHAT IT IS, not when it was made
-5. Use professional ${targetLangName} that sounds premium
-6. Maximum 65 characters
-7. Capitalize first word only (Romanian style)
-8. NO quotes, NO punctuation at end
+STRICT Rules:
+1. ZERO Chinese characters - must be 100% ${targetLangName}
+2. NO direct translation - completely rewrite
+3. NO marketplace words: wholesale, factory, supplier, bulk, MOQ, OEM
+4. NO time references: 2024, 2025, new, latest, trending, hot
+5. Focus on WHAT IT IS + KEY FEATURE (material, style, function)
+6. Sound like luxury brands: Zara, H&M, Sephora style
+7. Maximum 70 characters
+8. Romanian style: capitalize only first word
+9. NO quotes, NO punctuation at end
+10. Make it sound like something you'd buy yourself
 
-Return ONLY the professional title:`;
+Return ONLY the professional title, nothing else:`;
 
             const response = await this.client.chat.completions.create({
                 model: this.model,
