@@ -283,13 +283,19 @@ class Product1688Scraper:
             api_url = "https://api.capsolver.com/createTask"
             print(f"📡 CAPSOLVER: API endpoint: {api_url}", file=sys.stderr)
             
+            # Capture screenshot and encode to base64 for CapSolver API
+            import base64
+            screenshot_bytes = page.screenshot(type='png', full_page=False)
+            screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+            print(f"📸 CAPSOLVER: Screenshot captured ({len(screenshot_base64)} chars)", file=sys.stderr)
+            
             # Prepare task for CapSolver (Alibaba slider type)
             task_data = {
                 "clientKey": self.capsolver_key,
                 "task": {
                     "type": "AntiAlibabaSlideTask",  # Specific for Alibaba/1688 slider
                     "websiteURL": page_url,
-                    "slideImage": page.screenshot(type='png'),  # CAPTCHA image
+                    "slideImage": screenshot_base64,  # Base64 encoded CAPTCHA image
                 }
             }
             
@@ -1325,38 +1331,115 @@ class Product1688Scraper:
             print(f"Error extracting images: {e}", file=sys.stderr)
 
     def _extract_variants(self, page, soup):
-        """Extract product variants (colors, sizes, etc.)"""
+        """Extract product variants from expand-view-list (Color classification on 1688.com)"""
         try:
-            # Get variant data from page
+            # Scroll to variants section
+            page.evaluate('window.scrollTo(0, 500)')
+            time.sleep(1)
+            
+            # Get variant data targeting expand-view-list and item-label elements
             variants_data = page.evaluate('''() => {
                 const variants = [];
-                const skuElements = document.querySelectorAll('[class*="sku"], [class*="Sku"]');
                 
-                skuElements.forEach(sku => {
-                    const label = sku.querySelector('[class*="label"]')?.innerText || '';
+                // Target expand-view-list class (1688.com color classification)
+                const expandLists = document.querySelectorAll('.expand-view-list');
+                
+                console.log('Found expand-view-list elements:', expandLists.length);
+                
+                expandLists.forEach((list, index) => {
+                    // Get variant name from parent or sibling elements
+                    let title = 'Color';
+                    const parentSku = list.closest('[class*="sku"]');
+                    if (parentSku) {
+                        const titleElem = parentSku.querySelector('.sku-title, .title, dt, label, [class*="name"]');
+                        if (titleElem) {
+                            title = titleElem.innerText.trim();
+                        }
+                    }
+                    
                     const values = [];
                     
-                    const items = sku.querySelectorAll('[class*="item"], li, span[class*="value"]');
-                    items.forEach(item => {
-                        const text = item.innerText.trim();
-                        if (text) values.push(text);
+                    // SPECIFICALLY target span.item-label elements with title attribute
+                    const itemLabels = list.querySelectorAll('span.item-label[title]');
+                    
+                    console.log('Found item-label elements:', itemLabels.length);
+                    
+                    itemLabels.forEach((label, labelIndex) => {
+                        const text = label.getAttribute('title');
+                        if (text) {
+                            const cleaned = text.trim();
+                            // Only add if it's valid text (not empty, not too long, not a URL)
+                            if (cleaned && 
+                                cleaned.length > 0 && 
+                                cleaned.length < 200 && 
+                                !cleaned.startsWith('http') &&
+                                !cleaned.startsWith('//')) {
+                                console.log(`  Variant ${labelIndex + 1}:`, cleaned);
+                                values.push(cleaned);
+                            }
+                        }
                     });
                     
-                    if (label && values.length > 0) {
+                    // If item-label didn't work, try other selectors as fallback
+                    if (values.length === 0) {
+                        console.log('Trying fallback selectors...');
+                        const items = list.querySelectorAll('[title]:not(img), [data-value]');
+                        items.forEach(item => {
+                            let text = item.getAttribute('title') || item.getAttribute('data-value');
+                            if (text) {
+                                text = text.trim();
+                                if (text && !text.startsWith('http') && text.length > 0 && text.length < 200) {
+                                    values.push(text);
+                                }
+                            }
+                        });
+                    }
+                    
+                    if (values.length > 0) {
+                        console.log('✅ Added variant type:', title, 'with', values.length, 'options');
                         variants.push({
-                            name: label,
+                            name: title,
                             values: values
                         });
                     }
                 });
                 
+                // Fallback if expand-view-list not found
+                if (variants.length === 0) {
+                    console.log('⚠️ No expand-view-list found, trying fallback...');
+                    const skuElements = document.querySelectorAll('[class*="sku"], [class*="Sku"]');
+                    skuElements.forEach(sku => {
+                        const label = sku.querySelector('[class*="label"], [class*="title"]')?.innerText || '';
+                        const values = [];
+                        const items = sku.querySelectorAll('[class*="item"], li, span[class*="value"]');
+                        items.forEach(item => {
+                            const text = item.innerText.trim();
+                            if (text && text.length < 200) values.push(text);
+                        });
+                        if (label && values.length > 0) {
+                            variants.push({name: label, values: values});
+                        }
+                    });
+                }
+                
+                console.log('Total variant types extracted:', variants.length);
                 return variants;
             }''')
 
             self.data['variants'] = variants_data
+            
+            if variants_data and len(variants_data) > 0:
+                print(f"✅ Extracted {len(variants_data)} variant type(s)", file=sys.stderr)
+                for variant in variants_data:
+                    print(f"   📦 {variant['name']}: {len(variant['values'])} options", file=sys.stderr)
+                    # Show first few values as preview
+                    preview = variant['values'][:3]
+                    print(f"      Preview: {', '.join(preview)}...", file=sys.stderr)
+            else:
+                print("⚠️ No variants found", file=sys.stderr)
 
         except Exception as e:
-            print(f"Error extracting variants: {e}", file=sys.stderr)
+            print(f"❌ Error extracting variants: {e}", file=sys.stderr)
 
     def _extract_description(self, page, soup):
         """Extract product description and description images"""

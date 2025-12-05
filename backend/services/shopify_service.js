@@ -77,7 +77,7 @@ class ShopifyService {
             return [{
                 option1: 'Default Title',
                 price: this.calculatePrice(basePrice).toFixed(2),
-                inventory_quantity: 0,
+                inventory_quantity: 100,
                 inventory_management: 'shopify'
             }];
         }
@@ -97,7 +97,7 @@ class ShopifyService {
                     variants.push({
                         option1: sanitizedValue,
                         price: this.calculatePrice(basePrice).toFixed(2),
-                        inventory_quantity: 0,
+                        inventory_quantity: 100,
                         inventory_management: 'shopify'
                     });
                 }
@@ -120,7 +120,7 @@ class ShopifyService {
                             option1: val1,
                             option2: val2,
                             price: this.calculatePrice(basePrice).toFixed(2),
-                            inventory_quantity: 0,
+                            inventory_quantity: 100,
                             inventory_management: 'shopify'
                         });
                     }
@@ -148,7 +148,7 @@ class ShopifyService {
                                 option2: val2,
                                 option3: val3,
                                 price: this.calculatePrice(basePrice).toFixed(2),
-                                inventory_quantity: 0,
+                                inventory_quantity: 100,
                                 inventory_management: 'shopify'
                             });
                         }

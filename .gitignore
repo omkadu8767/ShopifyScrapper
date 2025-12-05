@@ -37,6 +37,12 @@ pm2-logs/
 backend/downloads/
 backend/temp/
 
+# CAPTCHA images
+backend/captcha_*.png
+backend/scrapers/captcha_*.png
+captcha_*.png
+**/captcha_*.png
+
 # Database
 backend/*.db
 backend/*.sqlite
