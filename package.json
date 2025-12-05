@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "1688.com to Shopify Product Import System with Scraper + Auto-Upload",
     "scripts": {
+        "setup": "node -e \"require('child_process').execSync(process.platform === 'win32' ? 'setup.bat' : 'bash setup.sh', {stdio: 'inherit'})\"",
         "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
         "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
         "backend": "cd backend && npm run dev",
