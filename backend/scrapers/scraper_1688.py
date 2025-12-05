@@ -809,38 +809,49 @@ class Product1688Scraper:
                             time.sleep(5)
                         else:
                             print("⚠️ Automatic solving failed.", file=sys.stderr)
-                        print("👤 Please solve the CAPTCHA manually in the browser window...", file=sys.stderr)
-                        print("⏰ Waiting up to 120 seconds for manual solving...", file=sys.stderr)
-                        
-                        # Wait for manual CAPTCHA solving (2 minutes)
-                        max_wait = 120
-                        waited = 0
-                        check_interval = 5
-                        
-                        while waited < max_wait:
-                            time.sleep(check_interval)
-                            waited += check_interval
                             
-                            # Check if CAPTCHA is gone
-                            try:
-                                current_text = page.evaluate('() => document.body ? document.body.innerText : ""')
-                                if not any(kw in current_text for kw in captcha_keywords):
-                                    print("✅ CAPTCHA cleared! Continuing...", file=sys.stderr)
-                                    break
-                            except:
-                                pass
+                            # Check if running in headless mode
+                            headless_mode = os.environ.get('HEADLESS_BROWSER', 'false').lower() == 'true'
                             
-                            if waited % 20 == 0:
-                                print(f"⏳ Still waiting... ({max_wait - waited}s remaining)", file=sys.stderr)
-                        
-                        # Final check
-                        time.sleep(3)
-                        final_text = page.evaluate('() => document.body ? document.body.innerText : ""')
-                        if any(kw in final_text for kw in captcha_keywords):
-                            print("❌ CAPTCHA still present after waiting.", file=sys.stderr)
-                            # Don't fail - try to scrape anyway
-                        else:
-                            print("✅ CAPTCHA passed!", file=sys.stderr)
+                            if headless_mode:
+                                # In headless mode, can't solve manually - fail fast
+                                print("❌ HEADLESS MODE: Cannot solve CAPTCHA manually (no browser visible)", file=sys.stderr)
+                                print("💡 Solution: Try again in a few minutes or disable headless mode", file=sys.stderr)
+                                raise Exception("CAPTCHA detected in headless mode. Please try again later or use saved session.")
+                            else:
+                                # In visible mode, wait for manual solving
+                                print("👤 Please solve the CAPTCHA manually in the browser window...", file=sys.stderr)
+                                print("⏰ Waiting up to 120 seconds for manual solving...", file=sys.stderr)
+                                
+                                # Wait for manual CAPTCHA solving (2 minutes)
+                                max_wait = 120
+                                waited = 0
+                                check_interval = 5
+                                
+                                while waited < max_wait:
+                                    time.sleep(check_interval)
+                                    waited += check_interval
+                                    
+                                    # Check if CAPTCHA is gone
+                                    try:
+                                        current_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                                        if not any(kw in current_text for kw in captcha_keywords):
+                                            print("✅ CAPTCHA cleared! Continuing...", file=sys.stderr)
+                                            break
+                                    except:
+                                        pass
+                                    
+                                    if waited % 20 == 0:
+                                        print(f"⏳ Still waiting... ({max_wait - waited}s remaining)", file=sys.stderr)
+                                
+                                # Final check
+                                time.sleep(3)
+                                final_text = page.evaluate('() => document.body ? document.body.innerText : ""')
+                                if any(kw in final_text for kw in captcha_keywords):
+                                    print("❌ CAPTCHA still present after waiting.", file=sys.stderr)
+                                    raise Exception("CAPTCHA not solved within timeout. Please try again.")
+                                else:
+                                    print("✅ CAPTCHA passed!", file=sys.stderr)
                 else:
                     print("✅ No CAPTCHA detected, proceeding...", file=sys.stderr)
                 
