@@ -91,6 +91,31 @@ This will start:
 - **Windows:** Add Python to PATH during installation or run `setup.bat` as Administrator
 - **Linux/Mac:** Install Python3: `sudo apt install python3 python3-pip` (Ubuntu/Debian)
 
+### ModuleNotFoundError (Python packages not found)
+This happens when Node.js doesn't use the Python venv. The app now **automatically detects** the venv, but if issues persist:
+
+**Option 1 (Recommended):** Ensure venv is created in `backend/venv`:
+```bash
+cd backend
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Option 2:** Set explicit Python path in `.env`:
+```env
+# Windows:
+PYTHON_PATH=D:\My Projects\Upwork\backend\venv\Scripts\python.exe
+
+# Linux/Mac:
+PYTHON_PATH=/path/to/project/backend/venv/bin/python
+```
+
+**Verify:** Check that `backend/venv` folder exists with `Scripts` (Windows) or `bin` (Linux/Mac) inside.
+
 ### Playwright browser issues
 Manually install Chromium browser:
 ```bash

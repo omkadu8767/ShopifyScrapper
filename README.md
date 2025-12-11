@@ -6,6 +6,22 @@ Developed for: **SHOPGURU INTERNATIONAL SRL**
 
 ---
 
+## 🚀 Quick Start
+
+```bash
+# 1. Install dependencies (one command)
+npm run setup
+
+# 2. Configure API keys in .env file
+
+# 3. Start application
+npm run dev
+```
+
+**Need help?** See [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md) for detailed setup guide.
+
+---
+
 ## 📋 Table of Contents
 
 - [Features](#features)

@@ -40,14 +40,27 @@ cd ..
 echo ✓ Frontend dependencies installed
 echo.
 
-echo [4/5] Installing Python dependencies...
+echo [4/5] Setting up Python virtual environment...
 python --version >nul 2>&1
 if errorlevel 1 (
     echo WARNING: Python not found in PATH
     echo Please install Python 3.8+ and add it to PATH
-    echo Skipping Python dependencies...
+    echo Skipping Python setup...
 ) else (
     cd backend
+    echo Creating Python virtual environment...
+    python -m venv venv
+    if errorlevel 1 (
+        echo ERROR: Failed to create virtual environment
+        cd ..
+        pause
+        exit /b 1
+    )
+    
+    echo Activating virtual environment...
+    call venv\Scripts\activate.bat
+    
+    echo Installing Python dependencies...
     python -m pip install --upgrade pip
     python -m pip install -r requirements.txt
     if errorlevel 1 (
@@ -57,18 +70,23 @@ if errorlevel 1 (
         exit /b 1
     )
     cd ..
-    echo ✓ Python dependencies installed
+    echo ✓ Python virtual environment created and dependencies installed
 )
 echo.
 
 echo [5/5] Installing Playwright browsers...
 cd backend
-python -m playwright install chromium
-if errorlevel 1 (
-    echo WARNING: Failed to install Playwright browsers
-    echo You may need to run this manually later
+if exist venv\Scripts\activate.bat (
+    call venv\Scripts\activate.bat
+    python -m playwright install chromium
+    if errorlevel 1 (
+        echo WARNING: Failed to install Playwright browsers
+        echo You may need to run this manually later
+    ) else (
+        echo ✓ Playwright browsers installed
+    )
 ) else (
-    echo ✓ Playwright browsers installed
+    echo WARNING: Virtual environment not found, skipping Playwright
 )
 cd ..
 echo.

@@ -7,12 +7,59 @@ const ShopifyService = require('../services/shopify_service');
 const fs = require('fs').promises;
 
 /**
+ * Get Python path from venv or system
+ */
+function getPythonPath() {
+    // Check if PYTHON_PATH is explicitly set in .env
+    if (process.env.PYTHON_PATH) {
+        const normalized = path.normalize(process.env.PYTHON_PATH);
+        console.log(`✅ Using configured Python: ${normalized}`);
+        return normalized;
+    }
+
+    // Try to find Python in venv
+    const venvPath = path.join(__dirname, '..', 'venv');
+    const isWindows = process.platform === 'win32';
+
+    const venvPythonPath = isWindows
+        ? path.join(venvPath, 'Scripts', 'python.exe')
+        : path.join(venvPath, 'bin', 'python');
+
+    // Normalize the path for Windows
+    const normalizedVenvPath = path.normalize(venvPythonPath);
+
+    // Check if venv Python exists
+    try {
+        const fs = require('fs');
+        if (fs.existsSync(normalizedVenvPath)) {
+            console.log(`✅ Using venv Python: ${normalizedVenvPath}`);
+            return normalizedVenvPath;
+        } else {
+            console.log(`⚠️ Venv Python not found at: ${normalizedVenvPath}`);
+        }
+    } catch (err) {
+        console.log(`⚠️ Error checking venv: ${err.message}`);
+    }
+
+    // Fallback to system Python
+    console.log('⚠️ Using system Python');
+    return isWindows ? 'python' : 'python3';
+}/**
  * Execute Python script and get result
  */
 function executePython(scriptPath, args = []) {
     return new Promise((resolve, reject) => {
-        const pythonPath = process.env.PYTHON_PATH || 'python';
-        const pythonProcess = spawn(pythonPath, [scriptPath, ...args]);
+        const pythonPath = getPythonPath();
+
+        console.log(`🐍 Executing Python script:`);
+        console.log(`   Python: ${pythonPath}`);
+        console.log(`   Script: ${scriptPath}`);
+        console.log(`   Args: ${JSON.stringify(args)}`);
+
+        const pythonProcess = spawn(pythonPath, [scriptPath, ...args], {
+            windowsHide: true,
+            shell: false
+        });
 
         let stdout = '';
         let stderr = '';
@@ -27,18 +74,26 @@ function executePython(scriptPath, args = []) {
 
         pythonProcess.on('close', (code) => {
             if (code !== 0) {
+                console.error(`❌ Python process exited with code ${code}`);
+                console.error(`stderr: ${stderr}`);
                 reject(new Error(stderr || `Process exited with code ${code}`));
             } else {
                 try {
                     const result = JSON.parse(stdout);
                     resolve(result);
                 } catch (e) {
+                    console.error(`❌ Failed to parse Python output as JSON`);
+                    console.error(`stdout: ${stdout.substring(0, 500)}`);
                     reject(new Error(`Failed to parse JSON: ${stdout}`));
                 }
             }
         });
 
         pythonProcess.on('error', (error) => {
+            console.error(`❌ Failed to spawn Python process: ${error.message}`);
+            console.error(`   Python path: ${pythonPath}`);
+            console.error(`   Error code: ${error.code}`);
+            console.error(`   Try running: node backend/test_python.js`);
             reject(error);
         });
     });

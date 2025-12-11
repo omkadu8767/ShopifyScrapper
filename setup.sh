@@ -38,34 +38,52 @@ cd ..
 echo "✓ Frontend dependencies installed"
 echo ""
 
-echo "[4/5] Installing Python dependencies..."
+echo "[4/5] Setting up Python virtual environment..."
 if ! command -v python3 &> /dev/null; then
     echo "WARNING: Python3 not found in PATH"
     echo "Please install Python 3.8+ and add it to PATH"
-    echo "Skipping Python dependencies..."
+    echo "Skipping Python setup..."
 else
     cd backend
-    python3 -m pip install --upgrade pip
-    python3 -m pip install -r requirements.txt
+    
+    echo "Creating Python virtual environment..."
+    python3 -m venv venv
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create virtual environment"
+        cd ..
+        exit 1
+    fi
+    
+    echo "Activating virtual environment..."
+    source venv/bin/activate
+    
+    echo "Installing Python dependencies..."
+    python -m pip install --upgrade pip
+    python -m pip install -r requirements.txt
     if [ $? -ne 0 ]; then
         echo "ERROR: Failed to install Python dependencies"
         cd ..
         exit 1
     fi
     cd ..
-    echo "✓ Python dependencies installed"
+    echo "✓ Python virtual environment created and dependencies installed"
 fi
 echo ""
 
 echo "[5/5] Installing Playwright browsers..."
 cd backend
-python3 -m playwright install chromium
-if [ $? -ne 0 ]; then
-    echo "WARNING: Failed to install Playwright browsers"
-    echo "You may need to run this manually later"
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+    python -m playwright install chromium
+    if [ $? -ne 0 ]; then
+        echo "WARNING: Failed to install Playwright browsers"
+        echo "You may need to run this manually later"
+    else
+        python -m playwright install-deps chromium 2>/dev/null || echo "Note: System dependencies may need manual installation"
+        echo "✓ Playwright browsers installed"
+    fi
 else
-    python3 -m playwright install-deps chromium 2>/dev/null || echo "Note: System dependencies may need manual installation"
-    echo "✓ Playwright browsers installed"
+    echo "WARNING: Virtual environment not found, skipping Playwright"
 fi
 cd ..
 echo ""

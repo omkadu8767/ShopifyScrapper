@@ -1342,96 +1342,131 @@ class Product1688Scraper:
             print(f"Error extracting images: {e}", file=sys.stderr)
 
     def _extract_variants(self, page, soup):
-        """Extract product variants from expand-view-list (Color classification on 1688.com)"""
+        """Extract product variants from .feature-item (both .transverse-filter and .expand-view-list)"""
         try:
             # Scroll to variants section
             page.evaluate('window.scrollTo(0, 500)')
             time.sleep(1)
             
-            # Get variant data targeting expand-view-list and item-label elements
+            # Get variant data - check both .transverse-filter AND .expand-view-list
             variants_data = page.evaluate('''() => {
                 const variants = [];
                 
-                // Target expand-view-list class (1688.com color classification)
-                const expandLists = document.querySelectorAll('.expand-view-list');
+                console.log('🔍 Starting variant extraction...');
                 
-                console.log('Found expand-view-list elements:', expandLists.length);
+                // Find all feature-item elements (parent container for variants)
+                const featureItems = document.querySelectorAll('.feature-item');
+                console.log('Found feature-item elements:', featureItems.length);
                 
-                expandLists.forEach((list, index) => {
-                    // Get variant name from parent or sibling elements
-                    let title = 'Color';
-                    const parentSku = list.closest('[class*="sku"]');
-                    if (parentSku) {
-                        const titleElem = parentSku.querySelector('.sku-title, .title, dt, label, [class*="name"]');
-                        if (titleElem) {
-                            title = titleElem.innerText.trim();
-                        }
+                featureItems.forEach((featureItem, featureIdx) => {
+                    console.log(`\\n📦 Processing feature-item #${featureIdx + 1}`);
+                    
+                    // Get variant type name from h3 or label
+                    let variantType = 'Option';
+                    const labelElem = featureItem.querySelector('.feature-item-label h3, .feature-item-label');
+                    if (labelElem) {
+                        variantType = labelElem.innerText.trim();
+                        console.log('  Variant type:', variantType);
                     }
                     
                     const values = [];
                     
-                    // SPECIFICALLY target span.item-label elements with title attribute
-                    const itemLabels = list.querySelectorAll('span.item-label[title]');
-                    
-                    console.log('Found item-label elements:', itemLabels.length);
-                    
-                    itemLabels.forEach((label, labelIndex) => {
-                        const text = label.getAttribute('title');
-                        if (text) {
-                            const cleaned = text.trim();
-                            // Only add if it's valid text (not empty, not too long, not a URL)
-                            if (cleaned && 
-                                cleaned.length > 0 && 
-                                cleaned.length < 200 && 
-                                !cleaned.startsWith('http') &&
-                                !cleaned.startsWith('//')) {
-                                console.log(`  Variant ${labelIndex + 1}:`, cleaned);
-                                values.push(cleaned);
-                            }
-                        }
-                    });
-                    
-                    // If item-label didn't work, try other selectors as fallback
-                    if (values.length === 0) {
-                        console.log('Trying fallback selectors...');
-                        const items = list.querySelectorAll('[title]:not(img), [data-value]');
-                        items.forEach(item => {
-                            let text = item.getAttribute('title') || item.getAttribute('data-value');
-                            if (text) {
-                                text = text.trim();
-                                if (text && !text.startsWith('http') && text.length > 0 && text.length < 200) {
+                    // METHOD 1: Check for .transverse-filter (for color variants like Pink, Green, Blue)
+                    const transverseFilter = featureItem.querySelector('.transverse-filter');
+                    if (transverseFilter) {
+                        console.log('  ✅ Found .transverse-filter');
+                        const buttons = transverseFilter.querySelectorAll('.sku-filter-button, button');
+                        console.log('  Found buttons:', buttons.length);
+                        
+                        buttons.forEach((button, btnIdx) => {
+                            const labelName = button.querySelector('.label-name');
+                            if (labelName) {
+                                // Handle nested <font> tags or direct text
+                                const fontElems = labelName.querySelectorAll('font');
+                                let text = '';
+                                
+                                if (fontElems.length > 0) {
+                                    // Get text from last font element (innermost)
+                                    text = fontElems[fontElems.length - 1].innerText.trim();
+                                } else {
+                                    text = labelName.innerText.trim();
+                                }
+                                
+                                if (text && text.length > 0 && text.length < 100) {
+                                    console.log(`    Button ${btnIdx + 1}:`, text);
                                     values.push(text);
                                 }
                             }
                         });
                     }
                     
+                    // METHOD 2: Check for .expand-view-list (for capacity/size variants like 400ml, 300ml)
+                    const expandList = featureItem.querySelector('.expand-view-list');
+                    if (expandList && values.length === 0) {
+                        console.log('  ✅ Found .expand-view-list');
+                        const itemLabels = expandList.querySelectorAll('.item-label[title]');
+                        console.log('  Found item-label elements:', itemLabels.length);
+                        
+                        itemLabels.forEach((label, labelIdx) => {
+                            const text = label.getAttribute('title');
+                            if (text) {
+                                const cleaned = text.trim();
+                                if (cleaned && cleaned.length > 0 && cleaned.length < 200) {
+                                    console.log(`    Item ${labelIdx + 1}:`, cleaned);
+                                    values.push(cleaned);
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Add variant if we found values
                     if (values.length > 0) {
-                        console.log('✅ Added variant type:', title, 'with', values.length, 'options');
+                        console.log(`  ✅ Added variant: ${variantType} with ${values.length} options`);
+                        variants.push({
+                            name: variantType,
+                            values: values
+                        });
+                    }
+                });
+                
+                // LEGACY FALLBACK: Check standalone .expand-view-list (not inside .feature-item)
+                const expandLists = document.querySelectorAll('.expand-view-list');
+                console.log('\\n🔍 Checking standalone expand-view-list:', expandLists.length);
+                
+                expandLists.forEach((list, index) => {
+                    // Skip if already processed as part of feature-item
+                    if (list.closest('.feature-item')) {
+                        console.log('  Skipping (already in feature-item)');
+                        return;
+                    }
+                    
+                    // Get variant name from parent
+                    let title = 'Option';
+                    const parentSku = list.closest('[class*="sku"]');
+                    if (parentSku) {
+                        const titleElem = parentSku.querySelector('.sku-title, .title, dt, label, h3');
+                        if (titleElem) {
+                            title = titleElem.innerText.trim();
+                        }
+                    }
+                    
+                    const values = [];
+                    const itemLabels = list.querySelectorAll('.item-label[title]');
+                    itemLabels.forEach(label => {
+                        const text = label.getAttribute('title');
+                        if (text && text.trim().length > 0 && text.trim().length < 200) {
+                            values.push(text.trim());
+                        }
+                    });
+                    
+                    if (values.length > 0) {
+                        console.log(`  ✅ Standalone variant: ${title} with ${values.length} options`);
                         variants.push({
                             name: title,
                             values: values
                         });
                     }
                 });
-                
-                // Fallback if expand-view-list not found
-                if (variants.length === 0) {
-                    console.log('⚠️ No expand-view-list found, trying fallback...');
-                    const skuElements = document.querySelectorAll('[class*="sku"], [class*="Sku"]');
-                    skuElements.forEach(sku => {
-                        const label = sku.querySelector('[class*="label"], [class*="title"]')?.innerText || '';
-                        const values = [];
-                        const items = sku.querySelectorAll('[class*="item"], li, span[class*="value"]');
-                        items.forEach(item => {
-                            const text = item.innerText.trim();
-                            if (text && text.length < 200) values.push(text);
-                        });
-                        if (label && values.length > 0) {
-                            variants.push({name: label, values: values});
-                        }
-                    });
-                }
                 
                 console.log('Total variant types extracted:', variants.length);
                 return variants;
