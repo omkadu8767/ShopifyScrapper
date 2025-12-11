@@ -27,7 +27,7 @@ npm run dev
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)
-<!-- - [Installation](#installation)
+- [Installation](#installation)
   - [Local Development Setup](#local-development-setup)
   - [Production Deployment (DigitalOcean)](#production-deployment-digitalocean)
 - [Configuration](#configuration)
@@ -36,27 +36,32 @@ npm run dev
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
-- [License](#license) -->
+- [License](#license)
 
 ---
 
 ## ✨ Features
 
 ### Core Functionality
-- **Automated Scraping**: Extracts complete product data from any 1688.com product page
-- **AI Translation**: Translates Chinese to Romanian (or other languages) using Google Gemini AI
+- **Automated Scraping**: Extracts complete product data from any 1688.com product page using Playwright
+- **CAPTCHA Solving**: Automatic CAPTCHA bypass using CapSolver API with fallback to automatic slider solving
+- **AI Translation**: Professional Chinese to Romanian translation using ChatGPT API (GPT-4o-mini)
 - **Description Rewriting**: Converts product descriptions into professional, SEO-optimized Shopify format
-- **Image Processing**: Downloads, optimizes, and compresses images to WebP format
+- **Variant Extraction**: Intelligent extraction of colors, sizes, and capacities from multiple HTML structures
+- **Image Processing**: Downloads, optimizes, and compresses images to WebP format (filters out videos)
 - **Automatic Upload**: Creates complete Shopify products with variants, pricing, and SEO fields
 - **Web Interface**: User-friendly UI for importing products
 - **RESTful API**: Public API endpoint for programmatic imports
 - **Import Tracking**: SQLite database tracks all imports with status and history
 
 ### Advanced Features
-- **Intelligent Pricing**: Configurable markup rules (percentage + fixed + currency conversion + .99 rounding)
-- **Variant Generation**: Automatically creates all variant combinations (colors, sizes, materials, etc.)
+- **Intelligent Pricing**: 6x markup with CNY to RON conversion (0.68 rate) and .99 rounding
+- **Default Inventory**: All variants automatically set to 100 units in stock
+- **Variant Generation**: Automatically creates all variant combinations from .feature-item and .expand-view-list
+- **Session Persistence**: Browser session saved to reduce CAPTCHA frequency
+- **Headless Mode**: Supports headless browser operation for production deployment
 - **SEO Optimization**: Auto-generates SEO titles, meta descriptions, and image alt-text
-- **Error Handling**: Robust error handling with detailed logging
+- **Error Handling**: Robust error handling with detailed logging and debugging console output
 - **Rate Limiting**: Built-in protection against API abuse
 - **Real-time Status**: Live import status tracking with polling
 
@@ -66,12 +71,13 @@ npm run dev
 
 ### Backend
 - **Node.js** + Express.js (REST API server)
-- **Python 3** (Scraping + AI services)
-- **Playwright** (Browser automation for scraping)
-- **Google Gemini AI** (Translation & content rewriting)
-- **Sharp** (Image optimization)
+- **Python 3.8+** (Scraping with automatic venv detection)
+- **Playwright Sync API** (Browser automation with Chrome/Chromium)
+- **CapSolver API** (Automatic CAPTCHA solving for 1688.com)
+- **ChatGPT API** (GPT-4o-mini for Romanian translation)
+- **BeautifulSoup4 & lxml** (HTML parsing)
 - **SQLite** (Import tracking database)
-- **Shopify Admin API** (Product creation)
+- **Shopify Admin API 2024-10** (Product creation)
 
 ### Frontend
 - **React 18** (UI framework)
@@ -103,10 +109,11 @@ npm run dev
 
 ### API Keys Required
 - **Shopify Admin API Token** (with product write permissions)
-- **Google Gemini API Key** (for AI translation)
+- **ChatGPT API Key** (OpenAI API for Romanian translation)
+- **CapSolver API Key** (Optional - for automatic CAPTCHA solving, falls back to automatic slider)
 
 ---
-<!--
+
 ## 🚀 Installation
 
 ### Local Development Setup
@@ -117,29 +124,43 @@ git clone <repository-url>
 cd 1688-shopify-importer
 ```
 
-#### 2. Install Root Dependencies
+#### 2. Automated Installation (Recommended)
 ```bash
-npm install
+# One command to install everything
+npm run setup
 ```
 
-#### 3. Install Backend Dependencies
+This will automatically:
+- ✅ Install root, backend, and frontend npm packages
+- ✅ Create Python virtual environment in `backend/venv`
+- ✅ Install Python packages (playwright, beautifulsoup4, lxml, requests, python-dotenv)
+- ✅ Download Playwright Chromium browser
+
+**Verify installation:**
 ```bash
-cd backend
+node backend/test_python.js
+```
+
+#### Alternative: Manual Installation
+```bash
+# Install Node.js dependencies
 npm install
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+
+# Create Python virtual environment
+cd backend
+python -m venv venv
+
+# Activate venv (Windows)
+venv\Scripts\activate
+# Activate venv (Linux/Mac)
+source venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
-
-# Install Playwright browsers
-python -m playwright install chromium
-
-cd ..
-```
-
-#### 4. Install Frontend Dependencies
-```bash
-cd frontend
-npm install
+playwright install chromium
+deactivate
 cd ..
 ```
 
@@ -156,19 +177,30 @@ notepad .env
 ```env
 # Shopify Configuration
 SHOPIFY_STORE_URL=your-store.myshopify.com
-SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxx
+SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SHOPIFY_API_VERSION=2024-10
 
-# AI Translation
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Language Settings
+# AI Translation (ChatGPT)
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TARGET_LANGUAGE=ro
 
-# Pricing Rules
-PRICE_MARKUP_PERCENTAGE=2.5
-PRICE_MARKUP_FIXED=15
+# CapSolver API (for automatic CAPTCHA solving)
+CAPSOLVER_API_KEY=CAP-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Pricing Rules (6x markup)
+PRICE_MARKUP_PERCENTAGE=6.0
+PRICE_MARKUP_FIXED=0
 CNY_TO_RON_RATE=0.68
 ENABLE_99_ROUNDING=true
+
+# Scraper Configuration
+SCRAPER_TIMEOUT=60000
+HEADLESS_BROWSER=true
+
+# Image Processing
+IMAGE_FORMAT=webp
+IMAGE_QUALITY=85
+MAX_IMAGE_WIDTH=2048
 ```
 
 #### 6. Start Development Servers
@@ -287,14 +319,19 @@ Your application should now be accessible at `https://your-domain.com`
 |----------|-------------|---------|----------|
 | `SHOPIFY_STORE_URL` | Your Shopify store domain | `mystore.myshopify.com` | Yes |
 | `SHOPIFY_ACCESS_TOKEN` | Shopify Admin API token | `shpat_xxxxx` | Yes |
-| `GEMINI_API_KEY` | Google Gemini API key | `AIzaSyxxx` | Yes |
+| `SHOPIFY_API_VERSION` | Shopify API version | `2024-10` | No (default: `2024-10`) |
+| `OPENAI_API_KEY` | ChatGPT API key for translation | `sk-proj-xxxxx` | Yes |
+| `CAPSOLVER_API_KEY` | CapSolver API for CAPTCHA | `CAP-xxxxx` | No (falls back to auto) |
 | `TARGET_LANGUAGE` | Translation target language | `ro`, `en` | No (default: `ro`) |
-| `PRICE_MARKUP_PERCENTAGE` | Price multiplier | `2.5` = 250% markup | No (default: `2.5`) |
-| `PRICE_MARKUP_FIXED` | Fixed amount to add | `15` RON | No (default: `15`) |
+| `PRICE_MARKUP_PERCENTAGE` | Price multiplier | `6.0` = 6x markup | No (default: `6.0`) |
+| `PRICE_MARKUP_FIXED` | Fixed amount to add | `0` RON | No (default: `0`) |
 | `CNY_TO_RON_RATE` | Currency conversion rate | `0.68` | No (default: `0.68`) |
 | `ENABLE_99_ROUNDING` | Round prices to .99 | `true` or `false` | No (default: `true`) |
+| `HEADLESS_BROWSER` | Run browser in headless mode | `true` or `false` | No (default: `true`) |
+| `SCRAPER_TIMEOUT` | Scraper timeout in ms | `60000` | No (default: `60000`) |
 | `IMAGE_FORMAT` | Image output format | `webp`, `jpg`, `png` | No (default: `webp`) |
 | `IMAGE_QUALITY` | Image quality (1-100) | `85` | No (default: `85`) |
+| `MAX_IMAGE_WIDTH` | Maximum image width | `2048` | No (default: `2048`) |
 | `PORT` | Backend server port | `5000` | No (default: `5000`) |
 
 ### Getting API Keys
@@ -307,12 +344,21 @@ Your application should now be accessible at `https://your-domain.com`
 5. Configure **Admin API scopes**: `write_products`, `read_products`
 6. Install app and copy the **Admin API access token**
 
-#### Google Gemini API Key
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Sign in with Google account
-3. Click **Get API Key**
-4. Create new API key or use existing
-5. Copy the API key
+#### ChatGPT API Key (OpenAI)
+1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Sign in with OpenAI account
+3. Click **Create new secret key**
+4. Name it "1688-Shopify-Translator"
+5. Copy the API key (starts with `sk-proj-`)
+6. Add billing method if not already done
+
+#### CapSolver API Key (Optional)
+1. Go to [CapSolver Dashboard](https://dashboard.capsolver.com/)
+2. Sign up or log in
+3. Navigate to **API Key** section
+4. Copy your API key (starts with `CAP-`)
+5. Add balance for CAPTCHA solving credits
+6. **Note**: If not configured, automatic slider solving will be used as fallback
 
 ---
 
@@ -445,45 +491,107 @@ GET /api/health
 
 ### Common Issues
 
-#### 1. **Import fails with "Scraping failed"**
+#### 1. **ModuleNotFoundError: No module named 'playwright'**
+
+**Cause**: Node.js not using Python virtual environment
+
+**Solutions**:
+```bash
+# Test Python detection
+node backend/test_python.js
+
+# If venv not found, recreate it
+cd backend
+rmdir /s /q venv  # Windows
+rm -rf venv       # Linux/Mac
+cd ..
+npm run setup
+
+# Verify installation
+node backend/test_python.js
+```
+
+**Manual fix**:
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
+playwright install chromium
+```
+
+See [PYTHON_VENV_FIX.md](./PYTHON_VENV_FIX.md) for detailed troubleshooting.
+
+#### 2. **Import fails with "Scraping failed"**
 
 **Cause**: 1688 website structure changed or blocking requests
 
 **Solutions**:
 - Check if the URL is valid and accessible
+- Verify CapSolver API key has credits: https://dashboard.capsolver.com/
+- Set `HEADLESS_BROWSER=false` to see browser for debugging
 - Update scraper selectors in `backend/scrapers/scraper_1688.py`
 - Try with a different product URL
-- Check Playwright browser installation: `python -m playwright install chromium`
+- Check browser session: `backend/browser_sessions/1688_session`
 
-#### 2. **"Translation failed" error**
+#### 3. **"Translation failed" error**
 
-**Cause**: Invalid Gemini API key or quota exceeded
+**Cause**: Invalid ChatGPT API key or quota exceeded
 
 **Solutions**:
-- Verify `GEMINI_API_KEY` in `.env` is correct
-- Check API quota at [Google AI Studio](https://makersuite.google.com)
-- Ensure API key has proper permissions
-- Check network connectivity to Google APIs
+- Verify `OPENAI_API_KEY` in `.env` is correct (starts with `sk-proj-`)
+- Check API usage and billing at [OpenAI Platform](https://platform.openai.com/usage)
+- Ensure you have available credits
+- Check network connectivity to OpenAI APIs
+- Verify model `gpt-4o-mini` is accessible
 
-#### 3. **"Shopify upload failed"**
+#### 4. **"Shopify upload failed"**
 
 **Cause**: Invalid Shopify credentials or insufficient permissions
 
 **Solutions**:
-- Verify `SHOPIFY_STORE_URL` and `SHOPIFY_ACCESS_TOKEN`
-- Ensure Shopify app has `write_products` scope
-- Check Shopify API rate limits
-- Verify product data format matches Shopify requirements
+- Verify `SHOPIFY_STORE_URL` format: `store.myshopify.com` (no https://)
+- Check `SHOPIFY_ACCESS_TOKEN` is valid and active
+- Ensure Shopify app has `write_products` and `read_products` scopes
+- Verify API version `2024-10` is supported by your store
+- Check Shopify API rate limits (avoid too many rapid imports)
+- Review variant data format (ensure all required fields present)
 
-#### 4. **Images not uploading**
+#### 5. **CAPTCHA not solving / "Please wait continuously"**
+
+**Cause**: CAPTCHA solver not working or headless mode issue
+
+**Solutions**:
+```bash
+# Check CapSolver credits
+# Visit: https://dashboard.capsolver.com/
+
+# Test in visible mode (disable headless)
+# In .env file:
+HEADLESS_BROWSER=false
+
+# Check CapSolver API key
+# Should start with: CAP-
+
+# View detailed logs
+pm2 logs 1688-shopify-backend
+```
+
+**If CapSolver fails**: Automatic slider solving will be attempted as fallback
+
+**Session persistence**: After first successful CAPTCHA, browser session is saved to `backend/browser_sessions/1688_session` to reduce future CAPTCHAs
+
+#### 6. **Images not uploading**
 
 **Cause**: Image URLs blocked or download failed
 
 **Solutions**:
-- Check image URLs are accessible
-- Verify network connectivity
+- Check image URLs are accessible from CDN
+- Verify images are from `img.alicdn.com` domain
 - Check disk space for temporary downloads
-- Review image processor logs
+- Ensure images aren't videos (scraper filters them)
+- Review image processor logs for errors
 
 #### 5. **Frontend not connecting to backend**
 
@@ -745,8 +853,8 @@ The project is considered complete when:
 
 **For technical support during warranty period, contact the development team.**
 
-Last Updated: November 21, 2025
-"# ShopifyScrapper"  -->
+Last Updated: December 04, 2025\
+"# ShopifyScrapper" 
 "# ShopifyScrapper" 
 "# ShopifyScrapper" 
 "# ShopifyScrapper" 
